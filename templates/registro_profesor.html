@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Registro Profesor - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .plan-card {
+        border: 2px solid #E5E7EB;
+        border-radius: 16px;
+        padding: 2rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+    .plan-card:hover {
+        border-color: #2563EB;
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    .plan-card.selected {
+        border-color: #2563EB;
+        background: #DBEAFE;
+    }
+    .plan-card .price {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: #0F172A;
+    }
+    .plan-card .price small {
+        font-size: 1rem;
+        font-weight: 400;
+        color: #64748B;
+    }
+    .plan-card .badge-popular {
+        background: #F59E0B;
+        color: white;
+        padding: 2px 12px;
+        border-radius: 50px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    .plan-card ul {
+        list-style: none;
+        padding: 0;
+        margin-top: 1rem;
+        text-align: left;
+    }
+    .plan-card ul li {
+        padding: 4px 0;
+        font-size: 0.9rem;
+    }
+    .plan-card ul li i {
+        color: #10B981;
+        margin-right: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-modern">
+                <div class="text-center mb-4">
+                    <i class="fas fa-crown text-warning" style="font-size: 3rem;"></i>
+                    <h2 class="fw-bold mt-2">Registro Profesor Premium</h2>
+                    <p class="text-muted">Elige tu plan y comienza a enseñar con PolitiCore</p>
+                </div>
+
+                <form method="POST" id="registroForm">
+                    <!-- Datos personales -->
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Nombre completo</label>
+                            <input type="text" class="form-control" name="nombre" placeholder="Tu nombre" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input type="email" class="form-control" name="email" placeholder="tu@email.com" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contraseña</label>
+                            <input type="password" class="form-control" name="password" placeholder="Mínimo 8 caracteres" required minlength="8">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Confirmar contraseña</label>
+                            <input type="password" class="form-control" name="confirm_password" placeholder="Repite tu contraseña" required>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Planes -->
+                    <h5 class="fw-bold mb-3">Selecciona tu plan</h5>
+                    <div class="row g-3">
+                        <!-- Plan Mensual -->
+                        <div class="col-md-6">
+                            <div class="plan-card selected" id="planMensual" onclick="seleccionarPlan('mensual')">
+                                <div class="price">$1.000 <small>/mes</small></div>
+                                <span class="badge bg-secondary">Popular</span>
+                                <ul>
+                                    <li><i class="fas fa-check"></i> Acceso a todas las tareas</li>
+                                    <li><i class="fas fa-check"></i> Material exclusivo</li>
+                                    <li><i class="fas fa-check"></i> Salas de clase</li>
+                                    <li><i class="fas fa-check"></i> Soporte prioritario</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <!-- Plan Anual -->
+                        <div class="col-md-6">
+                            <div class="plan-card" id="planAnual" onclick="seleccionarPlan('anual')">
+                                <div class="price">$11.000 <small>/año</small></div>
+                                <span class="badge bg-success">¡Ahorra!</span>
+                                <ul>
+                                    <li><i class="fas fa-check"></i> Todo del plan mensual</li>
+                                    <li><i class="fas fa-check"></i> 2 meses gratis</li>
+                                    <li><i class="fas fa-check"></i> Descuento especial</li>
+                                    <li><i class="fas fa-check"></i> Acceso ilimitado por 365 días</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="plan" id="planSeleccionado" value="mensual">
+
+                    <!-- Botón de pago simulado -->
+                    <div class="mt-4">
+                        <button type="button" class="btn btn-warning w-100 py-3 fw-bold" onclick="simularPagoYRegistrar()" style="font-size: 1.1rem;">
+                            <i class="fas fa-credit-card me-2"></i> 
+                            Simular pago y registrarse
+                        </button>
+                        <p class="text-muted text-center small mt-2">
+                            🔒 Demo: No se realizará ningún cobro real
+                        </p>
+                    </div>
+                </form>
+
+                <hr class="my-4">
+
+                <p class="text-center mb-0">
+                    ¿Ya tienes cuenta?
+                    <a href="{{ url_for('login') }}" class="text-primary fw-semibold">Inicia sesión aquí</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Seleccionar plan
+function seleccionarPlan(plan) {
+    document.querySelectorAll('.plan-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    if (plan === 'mensual') {
+        document.getElementById('planMensual').classList.add('selected');
+    } else {
+        document.getElementById('planAnual').classList.add('selected');
+    }
+    
+    document.getElementById('planSeleccionado').value = plan;
+}
+
+// Simular pago y registrar
+function simularPagoYRegistrar() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Procesando pago simulado...';
+    
+    const plan = document.getElementById('planSeleccionado').value;
+    const precio = plan === 'anual' ? 11000 : 1000;
+    
+    // Simular el pago
+    fetch('/api/simular_pago', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: plan })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Mostrar mensaje de éxito
+            alert(`✅ ¡Pago simulado exitoso! Se cobraron $${precio} CLP (Demo)`);
+            
+            // Enviar el formulario
+            document.getElementById('registroForm').submit();
+        } else {
+            alert('❌ Error en la simulación de pago');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-credit-card me-2"></i> Simular pago y registrarse';
+        }
+    })
+    .catch(err => {
+        alert('❌ Error al procesar la simulación');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-credit-card me-2"></i> Simular pago y registrarse';
+    });
+}
+</script>
+{% endblock %}

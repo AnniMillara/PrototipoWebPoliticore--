@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Suscripción Premium - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card-modern text-center">
+                <div class="mb-4">
+                    <i class="fas fa-crown text-warning" style="font-size: 4rem;"></i>
+                </div>
+                <h1 class="fw-bold">Profesor Premium</h1>
+                <p class="text-muted">Accede a todas las herramientas para tus clases</p>
+
+                {% if current_user.is_premium_active %}
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    ¡Ya eres Premium! 🎉
+                    <br>
+                    <small>Válido hasta: {{ current_user.fecha_expiracion }}</small>
+                </div>
+                <a href="{{ url_for('profesor_tareas') }}" class="btn btn-primary">
+                    <i class="fas fa-arrow-right me-2"></i> Ir a mis tareas
+                </a>
+                {% else %}
+                <div class="row g-3 mt-3">
+                    <div class="col-12">
+                        <div class="p-4 border rounded" style="background: #FFFBEB; border-color: #F59E0B !important;">
+                            <div class="mb-3">
+                                <span class="badge bg-warning text-dark fs-6">🎯 MODO DEMO</span>
+                            </div>
+                            <h2 class="fw-bold" style="color: #D97706;">
+                                Premium <small class="text-muted fs-6">gratis</small>
+                            </h2>
+                            <p class="text-muted">Activa Premium ahora mismo sin pagar (modo demo)</p>
+                            <ul class="list-unstyled mt-3 text-start">
+                                <li><i class="fas fa-check text-success me-2"></i> Acceso a todas las tareas</li>
+                                <li><i class="fas fa-check text-success me-2"></i> Material exclusivo para profesores</li>
+                                <li><i class="fas fa-check text-success me-2"></i> Descargas ilimitadas</li>
+                                <li><i class="fas fa-check text-success me-2"></i> Salas de clase</li>
+                            </ul>
+                            
+                            <!-- 👇 BOTÓN DEMO -->
+                            <button class="btn btn-warning w-100 mt-3 fw-bold" onclick="activarPremiumDemo()" 
+                                    style="font-size: 1.1rem; padding: 12px;">
+                                <i class="fas fa-crown me-2"></i> Activar Premium (Demo)
+                            </button>
+                            <p class="text-muted small mt-2">* Versión de demostración. En producción se cobraría $1.000 CLP</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="mt-4">
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-2"></i> Volver al inicio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function activarPremiumDemo() {
+    if (!confirm('🚀 Esto es una DEMO. Se activará Premium sin cobrar. ¿Continuar?')) return;
+    
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Activando...';
+    
+    fetch('/api/activar_premium_demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('🎉 ¡Premium activado! (Modo Demo)');
+            location.reload();
+        } else {
+            alert('❌ Error: ' + data.error);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-crown me-2"></i> Activar Premium (Demo)';
+        }
+    })
+    .catch(err => {
+        alert('❌ Error al activar Premium');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-crown me-2"></i> Activar Premium (Demo)';
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Registro - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .plan-card {
+        border: 2px solid #E5E7EB;
+        border-radius: 16px;
+        padding: 1.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: center;
+        height: 100%;
+    }
+    .plan-card:hover {
+        border-color: #2563EB;
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    .plan-card.selected {
+        border-color: #2563EB;
+        background: #DBEAFE;
+    }
+    .plan-card .price {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #0F172A;
+    }
+    .plan-card .price small {
+        font-size: 0.9rem;
+        font-weight: 400;
+        color: #64748B;
+    }
+    .plan-card ul {
+        list-style: none;
+        padding: 0;
+        margin-top: 0.5rem;
+        text-align: left;
+        font-size: 0.9rem;
+    }
+    .plan-card ul li {
+        padding: 3px 0;
+    }
+    .plan-card ul li i {
+        color: #10B981;
+        margin-right: 8px;
+    }
+    .badge-popular {
+        background: #F59E0B;
+        color: white;
+        padding: 2px 12px;
+        border-radius: 50px;
+        font-size: 0.65rem;
+        font-weight: 600;
+    }
+    .badge-ahorro {
+        background: #10B981;
+        color: white;
+        padding: 2px 12px;
+        border-radius: 50px;
+        font-size: 0.65rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-modern">
+                <div class="text-center mb-4">
+                    <i class="fas fa-gem text-primary" style="font-size: 3rem;"></i>
+                    <h2 class="fw-bold mt-2">Crear cuenta en PolitiCore</h2>
+                    <p class="text-muted">Elige tu plan y comienza a aprender o enseñar</p>
+                </div>
+
+                <form method="POST" id="registroForm" action="{{ url_for('registro') }}">
+                    <!-- Datos personales -->
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Nombre completo</label>
+                            <input type="text" class="form-control" name="nombre" id="nombre" placeholder="Tu nombre" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input type="email" class="form-control" name="email" id="email" placeholder="tu@email.com" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contraseña</label>
+                            <input type="password" class="form-control" name="password" id="password" placeholder="Mínimo 8 caracteres" required minlength="8">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Confirmar contraseña</label>
+                            <input type="password" class="form-control" name="confirm_password" id="confirm_password" placeholder="Repite tu contraseña" required>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Planes -->
+                    <h5 class="fw-bold mb-3">Selecciona tu plan</h5>
+                    <div class="row g-3">
+                        <!-- Plan Gratis (Estudiante) -->
+                        <div class="col-md-4">
+                            <div class="plan-card selected" id="planGratis" onclick="seleccionarPlan('gratis')">
+                                <div class="price">Gratis</div>
+                                <span class="badge bg-secondary">Estudiante</span>
+                                <ul>
+                                    <li><i class="fas fa-check"></i> Lecciones interactivas</li>
+                                    <li><i class="fas fa-check"></i> Simulaciones</li>
+                                    <li><i class="fas fa-check"></i> Seguimiento de progreso</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <!-- Plan Mensual -->
+                        <div class="col-md-4">
+                            <div class="plan-card" id="planMensual" onclick="seleccionarPlan('mensual')">
+                                <div class="price">$1.000 <small>/mes</small></div>
+                                <span class="badge-popular">🔥 Popular</span>
+                                <ul>
+                                    <li><i class="fas fa-check"></i> Todo del plan gratis</li>
+                                    <li><i class="fas fa-check"></i> Material de tareas</li>
+                                    <li><i class="fas fa-check"></i> Salas de clase</li>
+                                    <li><i class="fas fa-check"></i> Soporte prioritario</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <!-- Plan Anual -->
+                        <div class="col-md-4">
+                            <div class="plan-card" id="planAnual" onclick="seleccionarPlan('anual')">
+                                <div class="price">$11.000 <small>/año</small></div>
+                                <span class="badge-ahorro">💰 Ahorra 2 meses</span>
+                                <ul>
+                                    <li><i class="fas fa-check"></i> Todo del plan mensual</li>
+                                    <li><i class="fas fa-check"></i> 2 meses gratis</li>
+                                    <li><i class="fas fa-check"></i> Acceso por 365 días</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="plan" id="planSeleccionado" value="gratis">
+                    <input type="hidden" name="tipo_usuario" id="tipoUsuario" value="4">
+
+                    <!-- Botón de registro -->
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-success w-100 py-3 fw-bold" id="btnRegistrar" style="font-size: 1.1rem;">
+                            <i class="fas fa-user-plus me-2"></i> Crear cuenta
+                        </button>
+                        <p class="text-muted text-center small mt-2" id="mensajePlan">
+                            📚 Plan Gratis - Acceso a lecciones y simulaciones
+                        </p>
+                    </div>
+                </form>
+
+                <hr class="my-4">
+
+                <p class="text-center mb-0">
+                    ¿Ya tienes cuenta?
+                    <a href="{{ url_for('login') }}" class="text-primary fw-semibold">Inicia sesión aquí</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Seleccionar plan
+function seleccionarPlan(plan) {
+    document.querySelectorAll('.plan-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    const mensaje = document.getElementById('mensajePlan');
+    
+    if (plan === 'gratis') {
+        document.getElementById('planGratis').classList.add('selected');
+        document.getElementById('planSeleccionado').value = 'gratis';
+        document.getElementById('tipoUsuario').value = '4';
+        mensaje.textContent = '📚 Plan Gratis - Acceso a lecciones y simulaciones';
+        mensaje.className = 'text-muted text-center small mt-2';
+    } else if (plan === 'mensual') {
+        document.getElementById('planMensual').classList.add('selected');
+        document.getElementById('planSeleccionado').value = 'mensual';
+        document.getElementById('tipoUsuario').value = '3';
+        mensaje.textContent = '👨‍🏫 Plan Profesor - $1.000/mes (Demo, sin cobro real)';
+        mensaje.className = 'text-warning text-center small mt-2 fw-bold';
+    } else {
+        document.getElementById('planAnual').classList.add('selected');
+        document.getElementById('planSeleccionado').value = 'anual';
+        document.getElementById('tipoUsuario').value = '3';
+        mensaje.textContent = '👨‍🏫 Plan Profesor Anual - $11.000/año (Demo, sin cobro real)';
+        mensaje.className = 'text-warning text-center small mt-2 fw-bold';
+    }
+}
+
+// Validar contraseñas antes de enviar
+document.getElementById('registroForm').addEventListener('submit', function(e) {
+    const password = document.getElementById('password').value;
+    const confirm = document.getElementById('confirm_password').value;
+    
+    if (password !== confirm) {
+        e.preventDefault();
+        alert('❌ Las contraseñas no coinciden');
+        return false;
+    }
+    
+    const plan = document.getElementById('planSeleccionado').value;
+    if (plan === 'mensual' || plan === 'anual') {
+        const precio = plan === 'anual' ? 11000 : 1000;
+        if (!confirm(`💳 Simulando pago de $${precio} CLP por el plan ${plan === 'anual' ? 'anual' : 'mensual'}. ¿Continuar?`)) {
+            e.preventDefault();
+            return false;
+        }
+    }
+    
+    return true;
+});
+</script>
+{% endblock %}

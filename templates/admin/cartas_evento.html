@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Cartas de Evento - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .carta-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        border-left: 4px solid var(--primary-blue);
+        transition: var(--transition);
+        height: 100%;
+    }
+
+    .carta-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .carta-card .carta-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .carta-card .carta-titulo {
+        font-weight: 700;
+        font-size: 1rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .carta-card .carta-descripcion {
+        font-size: 0.85rem;
+        color: var(--text-gray);
+        margin-bottom: 0.5rem;
+    }
+
+    .carta-card .carta-efectos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-bottom: 0.5rem;
+    }
+
+    .carta-card .carta-efectos .badge {
+        font-size: 0.65rem;
+    }
+
+    .carta-card .carta-probabilidad {
+        font-size: 0.8rem;
+        color: var(--text-gray);
+    }
+
+    .badge-tipo-crisis {
+        background: #FEE2E2;
+        color: #991B1B;
+    }
+
+    .badge-tipo-sorpresa {
+        background: #DBEAFE;
+        color: #1E40AF;
+    }
+
+    .badge-tipo-oportunidad {
+        background: #D1FAE5;
+        color: #065F46;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">
+                <i class="fas fa-cards text-primary me-2"></i> Cartas de Evento
+            </h1>
+            <p class="text-muted">Gestiona las cartas que aparecen aleatoriamente en las simulaciones</p>
+        </div>
+        <a href="{{ url_for('admin_carta_evento_nueva') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Nueva Carta
+        </a>
+    </div>
+
+    <div class="row g-4">
+        {% for carta in cartas %}
+        <div class="col-md-4 col-lg-3">
+            <div class="carta-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="carta-icon">
+                        <i class="fas fa-{{ carta.icono or 'bolt' }}"></i>
+                    </div>
+                    <span class="badge {% if carta.activa %}bg-success{% else %}bg-secondary{% endif %}">
+                        {{ 'Activa' if carta.activa else 'Inactiva' }}
+                    </span>
+                </div>
+                <div class="carta-titulo">{{ carta.titulo }}</div>
+                <div class="carta-descripcion">{{ carta.descripcion[:80] }}{% if carta.descripcion|length > 80 %}...{%
+                    endif %}</div>
+                <div class="carta-efectos">
+                    {% if carta.efectos %}
+                    {% for key, value in carta.efectos.items() %}
+                    <span class="badge {% if value > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                        {{ key }}: {{ '+' if value > 0 else '' }}{{ value }}
+                    </span>
+                    {% endfor %}
+                    {% else %}
+                    <span class="badge bg-secondary">Sin efectos</span>
+                    {% endif %}
+                </div>
+                <div class="carta-probabilidad">
+                    <i class="fas fa-dice me-1"></i> Probabilidad: {{ (carta.probabilidad * 100)|round|int }}%
+                </div>
+                <div class="mt-2">
+                    <span class="badge badge-tipo-{{ carta.tipo or 'sorpresa' }}">
+                        {{ carta.tipo or 'Sorpresa' }}
+                    </span>
+                    {% if carta.mensaje_visible %}
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-comment me-1"></i> Con mensaje
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="mt-3 d-flex gap-2">
+                    <a href="{{ url_for('admin_carta_evento_editar', id=carta.id) }}"
+                        class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarCarta({{ carta.id }})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-cards text-muted" style="font-size: 4rem;"></i>
+                <h4 class="mt-3">No hay cartas de evento</h4>
+                <p class="text-muted">Crea tu primera carta para hacer las simulaciones más entretenidas.</p>
+                <a href="{{ url_for('admin_carta_evento_nueva') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i> Crear carta
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    function eliminarCarta(id) {
+        if (!confirm('¿Estás seguro de eliminar esta carta de evento?')) return;
+        fetch('/admin/carta_evento/eliminar/' + id, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('❌ Error: ' + data.error);
+                }
+            })
+            .catch(err => alert('❌ Error al eliminar'));
+    }
+</script>
+{% endblock %}

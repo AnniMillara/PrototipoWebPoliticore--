@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if carta else 'Nueva' }} Carta de Evento - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .preview-card {
+        background: #FFFBEB;
+        border: 2px solid #F59E0B;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-top: 1rem;
+    }
+    .preview-card .preview-icon {
+        font-size: 2.5rem;
+    }
+    .help-text {
+        font-size: 0.8rem;
+        color: #6B7280;
+        margin-top: 4px;
+    }
+    .badge-tipo-crisis { background: #FEE2E2; color: #991B1B; }
+    .badge-tipo-sorpresa { background: #DBEAFE; color: #1E40AF; }
+    .badge-tipo-oportunidad { background: #D1FAE5; color: #065F46; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-modern">
+                <h4 class="fw-bold mb-4">
+                    <i class="fas fa-{{ 'edit' if carta else 'plus' }} text-primary me-2"></i>
+                    {{ 'Editar' if carta else 'Nueva' }} Carta de Evento
+                </h4>
+
+                <form method="POST" id="cartaForm">
+                    <div class="row g-3">
+                        <!-- Título -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Título <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="titulo" 
+                                   value="{{ carta.titulo if carta else '' }}" required>
+                        </div>
+
+                        <!-- Descripción -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Descripción <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="descripcion" rows="3" required>{{ carta.descripcion if carta else '' }}</textarea>
+                        </div>
+
+                        <!-- Icono y Probabilidad -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Icono (Font Awesome)</label>
+                            <input type="text" class="form-control" name="icono" 
+                                   value="{{ carta.icono if carta else 'bolt' }}"
+                                   placeholder="Ej: volcano, duck, microphone">
+                            <div class="help-text">Sin el prefijo "fa-"</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Probabilidad (%)</label>
+                            <input type="number" class="form-control" name="probabilidad" 
+                                   value="{{ (carta.probabilidad * 100)|round|int if carta else 15 }}" 
+                                   min="1" max="50" step="1">
+                            <div class="help-text">Entre 5% y 30% es recomendado</div>
+                        </div>
+
+                        <!-- Tipo -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Tipo</label>
+                            <select class="form-select" name="tipo">
+                                <option value="sorpresa" {% if carta and carta.tipo == 'sorpresa' %}selected{% endif %}>🎁 Sorpresa</option>
+                                <option value="crisis" {% if carta and carta.tipo == 'crisis' %}selected{% endif %}>🔥 Crisis</option>
+                                <option value="oportunidad" {% if carta and carta.tipo == 'oportunidad' %}selected{% endif %}>💎 Oportunidad</option>
+                            </select>
+                        </div>
+
+                        <!-- Mensaje visible -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Mensaje visible</label>
+                            <input type="text" class="form-control" name="mensaje_visible" 
+                                   value="{{ carta.mensaje_visible if carta else '' }}"
+                                   placeholder="Mensaje que verá el jugador">
+                            <div class="help-text">Ej: "¡Alerta volcánica! El paseo se suspende."</div>
+                        </div>
+
+                        <!-- 👇 SIMULACIÓN (CAMPANA) -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Simulación</label>
+                            <select class="form-select" name="campana_id">
+                                <option value="">🌍 General (todas las simulaciones)</option>
+                                {% for sim in simulaciones %}
+                                <option value="{{ sim.id }}" {% if carta and carta.campana_id == sim.id %}selected{% endif %}>
+                                    📌 {{ sim.titulo }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="help-text">
+                                {% if carta and carta.campana_id %}
+                                Esta carta solo aparecerá en la simulación seleccionada
+                                {% else %}
+                                Esta carta aparecerá en TODAS las simulaciones
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- 👇 ESCENAS VÁLIDAS -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Escenas válidas</label>
+                            <input type="text" class="form-control" name="escenas_validas" 
+                                   value="{% if carta and carta.escenas_validas %}{% if carta.escenas_validas is string %}{{ carta.escenas_validas }}{% else %}{{ carta.escenas_validas|join(', ') }}{% endif %}{% endif %}"
+                                   placeholder="Ej: 3, 5, 7  o  [3, 5, 7]">
+                            <div class="help-text">
+                                Escenas donde puede aparecer (separadas por coma). 
+                                Deja vacío para que pueda aparecer en cualquier escena.
+                            </div>
+                        </div>
+
+                        <!-- Efectos -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Efectos en estadísticas</label>
+                            <div class="row g-2">
+                                <div class="col-md-2 col-4">
+                                    <label class="form-label small">Participación</label>
+                                    <input type="number" class="form-control form-control-sm" name="efecto_participacion" 
+                                           value="{{ carta.efectos.Participacion if carta and carta.efectos and carta.efectos.Participacion is defined else '' }}"
+                                           placeholder="±">
+                                </div>
+                                <div class="col-md-2 col-4">
+                                    <label class="form-label small">Confianza</label>
+                                    <input type="number" class="form-control form-control-sm" name="efecto_confianza" 
+                                           value="{{ carta.efectos.Confianza if carta and carta.efectos and carta.efectos.Confianza is defined else '' }}"
+                                           placeholder="±">
+                                </div>
+                                <div class="col-md-2 col-4">
+                                    <label class="form-label small">Educación</label>
+                                    <input type="number" class="form-control form-control-sm" name="efecto_educacion" 
+                                           value="{{ carta.efectos.Educacion if carta and carta.efectos and carta.efectos.Educacion is defined else '' }}"
+                                           placeholder="±">
+                                </div>
+                                <div class="col-md-2 col-4">
+                                    <label class="form-label small">Seguridad</label>
+                                    <input type="number" class="form-control form-control-sm" name="efecto_seguridad" 
+                                           value="{{ carta.efectos.Seguridad if carta and carta.efectos and carta.efectos.Seguridad is defined else '' }}"
+                                           placeholder="±">
+                                </div>
+                                <div class="col-md-2 col-4">
+                                    <label class="form-label small">Economía</label>
+                                    <input type="number" class="form-control form-control-sm" name="efecto_economia" 
+                                           value="{{ carta.efectos.Economia if carta and carta.efectos and carta.efectos.Economia is defined else '' }}"
+                                           placeholder="±">
+                                </div>
+                            </div>
+                            <div class="help-text">Valores positivos (+) aumentan, negativos (-) disminuyen</div>
+                        </div>
+
+                        <!-- Activa -->
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="activa" 
+                                       {% if not carta or carta.activa %}checked{% endif %}>
+                                <label class="form-check-label">Activa</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vista previa -->
+                    <div class="preview-card mt-4" id="previewCard">
+                        <h6 class="fw-bold"><i class="fas fa-eye me-2"></i> Vista previa</h6>
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="preview-icon" id="previewIcon">
+                                <i class="fas fa-bolt text-warning"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold" id="previewTitulo">Título de la carta</div>
+                                <div class="text-muted small" id="previewDescripcion">Descripción de la carta</div>
+                                <div id="previewEfectos" class="mt-1">
+                                    <span class="badge bg-success">Participación: +5</span>
+                                </div>
+                                <div id="previewContexto" class="mt-1">
+                                    <span class="badge bg-secondary">🌍 General</span>
+                                    <span class="badge bg-info">Escenas: Todas</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i> Guardar
+                        </button>
+                        <a href="{{ url_for('admin_cartas_evento') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i> Volver
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Vista previa en tiempo real
+document.querySelectorAll('#cartaForm input, #cartaForm textarea, #cartaForm select').forEach(el => {
+    el.addEventListener('input', actualizarPreview);
+    el.addEventListener('change', actualizarPreview);
+});
+
+function actualizarPreview() {
+    const titulo = document.querySelector('input[name="titulo"]').value || 'Título de la carta';
+    const descripcion = document.querySelector('textarea[name="descripcion"]').value || 'Descripción de la carta';
+    const icono = document.querySelector('input[name="icono"]').value || 'bolt';
+    const campanaSelect = document.querySelector('select[name="campana_id"]');
+    const campanaTexto = campanaSelect.options[campanaSelect.selectedIndex]?.text || 'General';
+    const escenas = document.querySelector('input[name="escenas_validas"]').value || 'Todas';
+    
+    const participacion = document.querySelector('input[name="efecto_participacion"]').value;
+    const confianza = document.querySelector('input[name="efecto_confianza"]').value;
+    const educacion = document.querySelector('input[name="efecto_educacion"]').value;
+    const seguridad = document.querySelector('input[name="efecto_seguridad"]').value;
+    const economia = document.querySelector('input[name="efecto_economia"]').value;
+    
+    document.getElementById('previewIcon').innerHTML = `<i class="fas fa-${icono} text-warning"></i>`;
+    document.getElementById('previewTitulo').textContent = titulo;
+    document.getElementById('previewDescripcion').textContent = descripcion;
+    
+    let html = '';
+    if (participacion) html += `<span class="badge ${participacion > 0 ? 'bg-success' : 'bg-danger'} me-1">Participación: ${participacion > 0 ? '+' : ''}${participacion}</span>`;
+    if (confianza) html += `<span class="badge ${confianza > 0 ? 'bg-success' : 'bg-danger'} me-1">Confianza: ${confianza > 0 ? '+' : ''}${confianza}</span>`;
+    if (educacion) html += `<span class="badge ${educacion > 0 ? 'bg-success' : 'bg-danger'} me-1">Educación: ${educacion > 0 ? '+' : ''}${educacion}</span>`;
+    if (seguridad) html += `<span class="badge ${seguridad > 0 ? 'bg-success' : 'bg-danger'} me-1">Seguridad: ${seguridad > 0 ? '+' : ''}${seguridad}</span>`;
+    if (economia) html += `<span class="badge ${economia > 0 ? 'bg-success' : 'bg-danger'} me-1">Economía: ${economia > 0 ? '+' : ''}${economia}</span>`;
+    
+    document.getElementById('previewEfectos').innerHTML = html || '<span class="text-muted small">Sin efectos</span>';
+    
+    const campanaBadge = campanaTexto.includes('General') ? 'bg-secondary' : 'bg-primary';
+    document.getElementById('previewContexto').innerHTML = `
+        <span class="badge ${campanaBadge}">${campanaTexto}</span>
+        <span class="badge bg-info">Escenas: ${escenas}</span>
+    `;
+}
+
+// Inicializar vista previa
+setTimeout(actualizarPreview, 100);
+</script>
+{% endblock %}

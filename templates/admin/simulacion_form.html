@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if simulacion else 'Nueva' }} Simulación - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-modern">
+                <h4 class="fw-bold mb-4">
+                    <i class="fas fa-{{ 'edit' if simulacion else 'plus' }} text-primary me-2"></i>
+                    {{ 'Editar' if simulacion else 'Nueva' }} Simulación
+                </h4>
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Título</label>
+                        <input type="text" class="form-control" name="titulo"
+                            value="{{ simulacion.titulo if simulacion else '' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Descripción</label>
+                        <textarea class="form-control" name="descripcion"
+                            rows="2">{{ simulacion.descripcion if simulacion else '' }}</textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Dificultad</label>
+                                <select class="form-select" name="dificultad">
+                                    <option value="Básico" {% if simulacion and simulacion.dificultad=='Básico'
+                                        %}selected{% endif %}>Básico</option>
+                                    <option value="Intermedio" {% if not simulacion or
+                                        simulacion.dificultad=='Intermedio' %}selected{% endif %}>Intermedio</option>
+                                    <option value="Avanzado" {% if simulacion and simulacion.dificultad=='Avanzado'
+                                        %}selected{% endif %}>Avanzado</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">XP Recompensa</label>
+                                <input type="number" class="form-control" name="xp_recompensa"
+                                    value="{{ simulacion.xp_recompensa if simulacion else 100 }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="activa" {% if not simulacion or
+                                simulacion.activa %}checked{% endif %}>
+                            <label class="form-check-label">Activa</label>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <small>Las simulaciones tienen una estructura predefinida. Para modificarlas en detalle, edita
+                            el JSON directamente en la base de datos.</small>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i> Guardar
+                        </button>
+                        <a href="{{ url_for('admin_simulaciones') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i> Volver
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

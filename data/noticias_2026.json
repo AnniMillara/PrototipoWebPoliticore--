@@ -1,0 +1,32 @@
+{
+    "noticias": [
+        {
+            "titulo": "Megarreforma económica avanza en el Senado",
+            "descripcion": "El proyecto de ley que rebaja el impuesto a empresas del 27% al 23% y promueve incentivos laborales quedó en discusión clave. La votación final fue aplazada para agosto.",
+            "fecha": "2026-07-29",
+            "icono": "landmark",
+            "destacada": true
+        },
+        {
+            "titulo": "Presidente Kast mantiene Estado de Catástrofe en Coquimbo y Huasco",
+            "descripcion": "El mandatario mantiene el Decreto de Excepción tras el temporal que dejó damnificados y pérdidas millonarias. Se activaron recursos para reconstrucción de infraestructura.",
+            "fecha": "2026-07-28",
+            "icono": "cloud-rain",
+            "destacada": true
+        },
+        {
+            "titulo": "Gobierno refuerza control fronterizo en el norte",
+            "descripcion": "El Ministerio del Interior intensifica la presencia de las Fuerzas Armadas en pasos fronterizos para mantener la seguridad interna del territorio nacional.",
+            "fecha": "2026-07-27",
+            "icono": "shield-alt",
+            "destacada": false
+        },
+        {
+            "titulo": "Contraloría fiscaliza distribución de recursos de emergencia",
+            "descripcion": "La Contraloría General de la República y ministerios sectoriales fiscalizan la distribución expedita de recursos estatales para evitar retrasos en comunas afectadas.",
+            "fecha": "2026-07-26",
+            "icono": "clipboard-check",
+            "destacada": false
+        }
+    ]
+}

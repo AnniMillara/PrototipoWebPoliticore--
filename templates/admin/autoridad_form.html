@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if autoridad else 'Nueva' }} Autoridad - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .foto-preview {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #E5E7EB;
+    }
+    .foto-preview-placeholder {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        background: #F3F4F6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 3px dashed #D1D5DB;
+        color: #9CA3AF;
+        font-size: 3rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-modern">
+                <h4 class="fw-bold mb-4">
+                    <i class="fas fa-{{ 'edit' if autoridad else 'plus' }} text-primary me-2"></i>
+                    {{ 'Editar' if autoridad else 'Nueva' }} Autoridad
+                </h4>
+
+                <!-- 👇 SECCIÓN DE FOTO -->
+                <div class="mb-4 text-center">
+                    <label class="form-label fw-semibold">Foto de la autoridad</label>
+                    <div class="d-flex flex-column align-items-center gap-3">
+                        {% if autoridad and autoridad.foto %}
+                        <img src="{{ autoridad.foto }}" alt="Foto" class="foto-preview" id="fotoPreview">
+                        {% else %}
+                        <div class="foto-preview-placeholder" id="fotoPreview">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-flex gap-2">
+                            <label class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-upload me-1"></i> Subir foto
+                                <input type="file" id="inputFoto" accept="image/*" style="display:none;" 
+                                       onchange="subirFotoAutoridad({{ autoridad.id if autoridad else 0 }})">
+                            </label>
+                            {% if autoridad and autoridad.foto %}
+                            <button class="btn btn-outline-danger btn-sm" onclick="eliminarFotoAutoridad({{ autoridad.id }})">
+                                <i class="fas fa-trash me-1"></i> Eliminar
+                            </button>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">Formatos: PNG, JPG, JPEG, GIF, WEBP. Máx 5MB</small>
+                    </div>
+                </div>
+
+                <hr>
+
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Nombre</label>
+                                <input type="text" class="form-control" name="nombre"
+                                    value="{{ autoridad.nombre if autoridad else '' }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Apellido</label>
+                                <input type="text" class="form-control" name="apellido_paterno"
+                                    value="{{ autoridad.apellido_paterno if autoridad else '' }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Cargo</label>
+                        <input type="text" class="form-control" name="cargo"
+                            value="{{ autoridad.cargo if autoridad else '' }}" required>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Partido</label>
+                                <input type="text" class="form-control" name="partido"
+                                    value="{{ autoridad.partido if autoridad else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Tipo de Autoridad</label>
+                                <select class="form-select" name="tipo_autoridad_id">
+                                    {% for tipo in tipos %}
+                                    <option value="{{ tipo.id }}" {% if autoridad and
+                                        autoridad.tipo_autoridad_id==tipo.id %}selected{% endif %}>
+                                        {{ tipo.nombre }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Descripción del Cargo</label>
+                        <textarea class="form-control" name="descripcion_cargo"
+                            rows="2">{{ autoridad.descripcion_cargo if autoridad else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Biografía</label>
+                        <textarea class="form-control" name="biografia"
+                            rows="3">{{ autoridad.biografia if autoridad else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="activo" {% if not autoridad or
+                                autoridad.activo %}checked{% endif %}>
+                            <label class="form-check-label">Activo</label>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i> Guardar
+                        </button>
+                        <a href="{{ url_for('admin_autoridades') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i> Volver
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Subir foto de autoridad
+function subirFotoAutoridad(id) {
+    const input = document.getElementById('inputFoto');
+    const file = input.files[0];
+    
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('foto', file);
+    
+    const btn = document.querySelector('label.btn-outline-primary');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Subiendo...';
+    btn.disabled = true;
+    
+    fetch('/admin/autoridad/' + id + '/subir_foto', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    })
+    .catch(err => {
+        alert('❌ Error al subir la foto');
+    })
+    .finally(() => {
+        btn.innerHTML = '<i class="fas fa-upload me-1"></i> Subir foto';
+        btn.disabled = false;
+    });
+}
+
+// Eliminar foto de autoridad
+function eliminarFotoAutoridad(id) {
+    if (!confirm('¿Eliminar esta foto?')) return;
+    
+    fetch('/admin/autoridad/' + id + '/eliminar_foto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Usuarios - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .usuario-row:hover {
+        background: #F8FAFC;
+    }
+    .avatar-mini {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-right: 8px;
+    }
+    .avatar-mini-placeholder {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #DBEAFE;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 8px;
+        color: #2563EB;
+    }
+    .badge-super-admin {
+        background: #FEF3C7;
+        color: #D97706;
+        font-weight: 600;
+    }
+    .badge-admin {
+        background: #DBEAFE;
+        color: #2563EB;
+    }
+    .badge-docente {
+        background: #D1FAE5;
+        color: #065F46;
+    }
+    .badge-estudiante {
+        background: #F3E8FF;
+        color: #7C3AED;
+    }
+    .badge-invitado {
+        background: #F3F4F6;
+        color: #6B7280;
+    }
+    .rol-select:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">
+                <i class="fas fa-users text-primary me-2"></i> Gestionar Usuarios
+                <span class="badge bg-danger ms-2">⭐ Super Admin</span>
+            </h1>
+            <p class="text-muted small">Solo Super Admin puede gestionar usuarios</p>
+        </div>
+        <span class="badge bg-secondary">{{ usuarios|length }} usuarios</span>
+    </div>
+
+    <div class="alert alert-warning">
+        <i class="fas fa-shield-alt me-2"></i>
+        <strong>Seguridad:</strong> No puedes cambiar tu propio rol, ni eliminarte a ti mismo.
+    </div>
+
+    <div class="card-modern">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Email</th>
+                        <th>Rol</th>
+                        <th>Nivel</th>
+                        <th>XP</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for usuario in usuarios %}
+                    <tr class="usuario-row">
+                        <td>
+                            {% if usuario.foto_perfil %}
+                            <img src="{{ usuario.foto_perfil }}" class="avatar-mini">
+                            {% else %}
+                            <span class="avatar-mini-placeholder">
+                                <i class="fas fa-user"></i>
+                            </span>
+                            {% endif %}
+                            {{ usuario.nombre }} {{ usuario.apellido_paterno or '' }}
+                            {% if usuario.id == current_user.id %}
+                            <span class="badge bg-primary ms-1">TÚ</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ usuario.email }}</td>
+                        <td>
+                            {% if usuario.tipo_usuario_id == 1 %}
+                            <span class="badge badge-super-admin">⭐ Super Admin</span>
+                            {% elif usuario.tipo_usuario_id == 2 %}
+                            <span class="badge badge-admin">Admin</span>
+                            {% elif usuario.tipo_usuario_id == 3 %}
+                            <span class="badge badge-docente">Docente</span>
+                            {% elif usuario.tipo_usuario_id == 4 %}
+                            <span class="badge badge-estudiante">Estudiante</span>
+                            {% else %}
+                            <span class="badge badge-invitado">Invitado</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ usuario.nivel }}</td>
+                        <td>{{ usuario.xp }}</td>
+                        <td>
+                            {% if usuario.activo %}
+                            <span class="badge bg-success">Activo</span>
+                            {% else %}
+                            <span class="badge bg-danger">Bloqueado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1 flex-wrap">
+                                <!-- Selector de rol -->
+                                <select class="form-select form-select-sm rol-select" 
+                                        style="width: 140px;"
+                                        onchange="cambiarRol({{ usuario.id }}, this.value)"
+                                        {% if usuario.id == current_user.id %}disabled{% endif %}>
+                                    <option value="1" {% if usuario.tipo_usuario_id == 1 %}selected{% endif %}>⭐ Super Admin</option>
+                                    <option value="2" {% if usuario.tipo_usuario_id == 2 %}selected{% endif %}>Admin</option>
+                                    <option value="3" {% if usuario.tipo_usuario_id == 3 %}selected{% endif %}>Docente</option>
+                                    <option value="4" {% if usuario.tipo_usuario_id == 4 %}selected{% endif %}>Estudiante</option>
+                                    <option value="5" {% if usuario.tipo_usuario_id == 5 %}selected{% endif %}>Invitado</option>
+                                </select>
+                                
+                                <!-- Botón Bloquear/Activar -->
+                                <button class="btn btn-sm {% if usuario.activo %}btn-warning{% else %}btn-success{% endif %}" 
+                                        onclick="toggleUsuario({{ usuario.id }}, {{ usuario.activo }})"
+                                        {% if usuario.id == current_user.id %}disabled{% endif %}>
+                                    <i class="fas {% if usuario.activo %}fa-ban{% else %}fa-check{% endif %}"></i>
+                                </button>
+                                
+                                <!-- Botón Eliminar -->
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="eliminarUsuario({{ usuario.id }})" 
+                                        {% if usuario.id == current_user.id or usuario.tipo_usuario_id == 1 %}disabled{% endif %}>
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                            {% if usuario.id == current_user.id %}
+                            <small class="text-muted d-block">🔒 No puedes modificarte</small>
+                            {% elif usuario.tipo_usuario_id == 1 %}
+                            <small class="text-muted d-block">🔒 Super Admin protegido</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No hay usuarios registrados</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function cambiarRol(id, tipo) {
+    if (id === {{ current_user.id }}) {
+        alert('❌ No puedes cambiar tu propio rol');
+        location.reload();
+        return;
+    }
+    
+    if (!confirm('⚠️ ¿Cambiar el rol de este usuario?')) {
+        location.reload();
+        return;
+    }
+    
+    fetch('/admin/usuario/cambiar_tipo/' + id, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo_usuario_id: tipo })
+    })
+    .then(r => {
+        if (!r.ok) {
+            throw new Error('Error en la petición');
+        }
+        return r.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert('✅ Rol actualizado');
+            location.reload();
+        } else {
+            alert('❌ ' + data.error);
+            location.reload();
+        }
+    })
+    .catch(err => {
+        alert('❌ Error: ' + err.message);
+        location.reload();
+    });
+}
+
+function toggleUsuario(id, activo) {
+    if (id === {{ current_user.id }}) {
+        alert('❌ No puedes modificarte a ti mismo');
+        return;
+    }
+    
+    var msg = activo ? '¿Bloquear este usuario?' : '¿Activar este usuario?';
+    if (!confirm(msg)) return;
+    
+    fetch('/admin/usuario/bloquear/' + id, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(err => {
+        alert('❌ Error: ' + err);
+    });
+}
+
+function eliminarUsuario(id) {
+    if (id === {{ current_user.id }}) {
+        alert('❌ No puedes eliminarte a ti mismo');
+        return;
+    }
+    
+    if (!confirm('⚠️ ¿Eliminar este usuario PERMANENTEMENTE? Esta acción no se puede deshacer.')) return;
+    if (!confirm('¿Estás SEGURO?')) return;
+    
+    fetch('/admin/usuario/eliminar/' + id, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Usuario eliminado');
+            location.reload();
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(err => {
+        alert('❌ Error: ' + err);
+    });
+}
+</script>
+{% endblock %}

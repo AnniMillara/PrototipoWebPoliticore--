@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Mis Clases - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold">
+            <i class="fas fa-chalkboard text-primary me-2"></i> Mis Clases
+        </h1>
+        <a href="{{ url_for('estudiante_unirse') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Unirse a nueva clase
+        </a>
+    </div>
+
+    {% if clases %}
+    <div class="row g-4">
+        {% for clase in clases %}
+        <div class="col-md-4">
+            <div class="card-modern">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h5 class="fw-bold mb-1">{{ clase.nombre }}</h5>
+                    <span class="badge bg-secondary">{{ clase.lecciones_completadas or 0 }} lecciones</span>
+                </div>
+                <p class="text-muted small">
+                    <i class="fas fa-user me-1"></i> Profesor: {{ clase.profesor_nombre }}
+                </p>
+                <div class="mb-2">
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-key me-1"></i> Código: {{ clase.codigo_acceso }}
+                    </span>
+                </div>
+                <a href="{{ url_for('estudiante_clase_detalle', sala_id=clase.id) }}" class="btn btn-primary btn-sm w-100">
+                    <i class="fas fa-eye me-1"></i> Ver progreso
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-door-open text-muted" style="font-size: 4rem;"></i>
+        <h4 class="mt-3">No estás en ninguna clase</h4>
+        <p class="text-muted">Pídele el código a tu profesor y únete a una clase.</p>
+        <a href="{{ url_for('estudiante_unirse') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Unirse a una clase
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

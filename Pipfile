@@ -1,0 +1,28 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+flask = "*"
+flask-login = "*"
+flask-sqlalchemy = "*"
+flask-migrate = "*"
+flask-wtf = "*"
+flask-cors = "*"
+pymysql = "*"
+requests = "*"
+pillow = "*"
+python-dotenv = "*"
+ollama = "*"
+mercadopago = "*"
+email-validator = "*"
+python-dateutil = "*"
+pydantic = "*"
+httpx = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.14"
+python_full_version = "3.14.4"

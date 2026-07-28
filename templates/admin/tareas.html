@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Tareas - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold">
+            <i class="fas fa-tasks text-primary me-2"></i> Gestionar Tareas
+        </h1>
+        <a href="{{ url_for('admin_tarea_nueva') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Nueva Tarea
+        </a>
+    </div>
+
+    <div class="card-modern">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Descripción</th>
+                        <th>Archivo</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tarea in tareas %}
+                    <tr>
+                        <td class="fw-semibold">{{ tarea.titulo }}</td>
+                        <td>{{ tarea.descripcion[:100] + '...' if tarea.descripcion|length > 100 else tarea.descripcion }}</td>
+                        <td>
+                            {% if tarea.archivo_url %}
+                            <a href="{{ tarea.archivo_url }}" target="_blank" class="btn btn-sm btn-success">
+                                <i class="fas fa-file me-1"></i> Ver
+                            </a>
+                            {% else %}
+                            <span class="badge bg-secondary">Sin archivo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('admin_tarea_editar', id=tarea.id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button class="btn btn-sm btn-outline-danger" onclick="eliminarTarea({{ tarea.id }})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No hay tareas creadas</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function eliminarTarea(id) {
+    if (confirm('¿Estás seguro de eliminar esta tarea?')) {
+        fetch('/admin/tarea/eliminar/' + id, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error al eliminar');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

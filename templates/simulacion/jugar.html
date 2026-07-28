@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}{{ campana.titulo }} - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .scene-container {
+        background: white;
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: var(--shadow-lg);
+        margin-bottom: 2rem;
+        animation: fadeIn 0.6s ease;
+        border-left: 6px solid var(--primary-blue);
+        min-height: 300px;
+    }
+    .scene-container.event {
+        border-left-color: #F59E0B;
+        background: #FFFBEB;
+    }
+    .scene-container.final {
+        border-left-color: #8B5CF6;
+        background: #F5F3FF;
+    }
+    .option-card {
+        background: white;
+        border: 2px solid #E5E7EB;
+        border-radius: 12px;
+        padding: 1.5rem;
+        cursor: pointer;
+        transition: var(--transition);
+        margin-bottom: 1rem;
+    }
+    .option-card:hover {
+        border-color: var(--primary-blue);
+        transform: translateX(8px);
+        box-shadow: var(--shadow-md);
+    }
+    .option-card.selected {
+        border-color: var(--primary-blue);
+        background: var(--primary-light);
+    }
+    .event-badge {
+        background: #FEF3C7;
+        color: #D97706;
+        padding: 4px 12px;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+        margin-bottom: 1rem;
+    }
+    .final-badge {
+        background: #EDE9FE;
+        color: #7C3AED;
+        padding: 4px 16px;
+        border-radius: 50px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: inline-block;
+        margin-bottom: 1rem;
+    }
+    .stat-change.positive { color: #10B981; }
+    .stat-change.negative { color: #EF4444; }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .indicator-bar {
+        height: 8px;
+        background: #E5E7EB;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 2px;
+    }
+    .indicator-bar .fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.8s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">{{ campana.titulo }}</h1>
+            <p class="text-muted">{{ campana.descripcion }}</p>
+        </div>
+        <span class="badge bg-primary p-2">
+            {% if escena.tipo == 'final' %}
+                🎉 Completada
+            {% else %}
+                Escena {{ escena_actual }}/{{ total_escenas }}
+            {% endif %}
+        </span>
+    </div>
+
+    <div class="scene-container 
+                {% if escena.tipo == 'evento' %}event
+                {% elif escena.tipo == 'final' %}final{% endif %}">
+        
+        {% if escena.tipo == 'final' %}
+            <div class="final-badge">
+                <i class="fas fa-crown me-2"></i> {{ escena.titulo }}
+            </div>
+        {% endif %}
+
+        {% if escena.tipo == 'evento' %}
+        <div class="event-badge">
+            <i class="fas fa-bolt me-1"></i> EVENTO INESPERADO
+        </div>
+        {% endif %}
+
+        <div class="mb-4">
+            <p class="fs-5">{{ escena.contexto }}</p>
+        </div>
+
+        {% if escena.tipo == 'decision' %}
+        <div class="mt-4">
+            <h6 class="fw-bold mb-3">¿Qué decides hacer?</h6>
+            {% for opcion in escena.opciones %}
+            <div class="option-card" onclick="seleccionarOpcion(this, {{ loop.index0 }})" data-index="{{ loop.index0 }}">
+                <div class="fw-semibold">{{ opcion.texto }}</div>
+                <!-- 🔥 LAS CONSECUENCIAS YA NO SE MUESTRAN 🔥 -->
+            </div>
+            {% endfor %}
+            <button class="btn btn-primary mt-3" id="btnConfirmar" style="display: none;" onclick="confirmarDecision()">
+                <i class="fas fa-check me-2"></i> Confirmar decisión
+            </button>
+        </div>
+        {% endif %}
+
+        {% if escena.tipo == 'evento' %}
+        <button class="btn btn-warning mt-3" onclick="continuarHistoria()">
+            <i class="fas fa-arrow-right me-2"></i> Continuar
+        </button>
+        {% endif %}
+
+        {% if escena.tipo == 'final' %}
+        <div class="mt-4 p-4 bg-light rounded-3">
+            <h6 class="fw-bold"><i class="fas fa-lightbulb text-warning me-2"></i> Reflexión</h6>
+            <p>{{ escena.reflexion }}</p>
+            <a href="{{ url_for('simulacion') }}" class="btn btn-primary mt-2">
+                <i class="fas fa-arrow-left me-2"></i> Volver a simulaciones
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Indicadores -->
+    {% if indicadores %}
+    <div class="row g-3 mt-3">
+        <div class="col-12">
+            <div class="bg-light p-3 rounded">
+                <h6 class="fw-bold mb-3">
+                    <i class="fas fa-chart-bar text-primary me-2"></i> Estado actual
+                </h6>
+                <div class="row g-2">
+                    {% for key, value in indicadores.items() %}
+                    <div class="col-md-2 col-4">
+                        <div class="text-center">
+                            <span class="d-block small text-muted">{{ key }}</span>
+                            <span class="fw-bold {% if value > 60 %}text-success{% elif value > 40 %}text-warning{% else %}text-danger{% endif %}">
+                                {{ value }}%
+                            </span>
+                            <div class="indicator-bar">
+                                <div class="fill {% if value > 60 %}bg-success{% elif value > 40 %}bg-warning{% else %}bg-danger{% endif %}"
+                                     style="width: {{ value }}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% block extra_js %}
+<script>
+let opcionSeleccionada = null;
+
+function seleccionarOpcion(element, index) {
+    document.querySelectorAll('.option-card').forEach(el => {
+        el.classList.remove('selected');
+    });
+    element.classList.add('selected');
+    opcionSeleccionada = index;
+    document.getElementById('btnConfirmar').style.display = 'block';
+}
+
+function confirmarDecision() {
+    if (opcionSeleccionada === null) {
+        alert('Por favor selecciona una opción');
+        return;
+    }
+
+    // 🔥 ENVIAR LA DECISIÓN AL SERVIDOR
+    fetch('/api/procesar_decision_simulacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            campana_id: {{ campana.id }},
+            escena_id: {{ escena_actual }},
+            opcion: opcionSeleccionada
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        var nextScene = data.next_scene || ({{ escena_actual }} + 1);
+        var total = {{ total_escenas }};
+        if (nextScene > total) {
+            alert('🎉 ¡Has completado todas las rondas!');
+            window.location.href = "{{ url_for('simulacion_jugar', id=campana.id) }}?escena=" + nextScene;
+        } else {
+            window.location.href = "{{ url_for('simulacion_jugar', id=campana.id) }}?escena=" + nextScene;
+        }
+    })
+    .catch(error => {
+        alert('❌ Error al procesar la decisión. Intenta nuevamente.');
+        console.error(error);
+    });
+}
+
+function continuarHistoria() {
+    var nextScene = {{ escena_actual }} + 1;
+    var total = {{ total_escenas }};
+    if (nextScene > total) {
+        alert('🎉 ¡Has completado todas las rondas!');
+        window.location.href = "{{ url_for('simulacion_jugar', id=campana.id) }}?escena=" + nextScene;
+    } else {
+        window.location.href = "{{ url_for('simulacion_jugar', id=campana.id) }}?escena=" + nextScene;
+    }
+}
+</script>
+{% endblock %}
+{% endblock %}

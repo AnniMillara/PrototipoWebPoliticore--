@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if ruta else 'Nueva' }} Ruta Alternativa - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .opcion-ruta {
+        background: var(--bg-light);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #E5E7EB;
+    }
+    .opcion-ruta .opcion-header {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-modern">
+                <h4 class="fw-bold mb-4">
+                    <i class="fas fa-{{ 'edit' if ruta else 'plus' }} text-primary me-2"></i>
+                    {{ 'Editar' if ruta else 'Nueva' }} Ruta Alternativa
+                </h4>
+
+                <form method="POST">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Carta de Evento <span class="text-danger">*</span></label>
+                            <select class="form-select" name="carta_id" required>
+                                <option value="">Seleccionar carta...</option>
+                                {% for carta in cartas %}
+                                <option value="{{ carta.id }}" {% if ruta and ruta.carta_id == carta.id %}selected{% endif %}>
+                                    <i class="fas fa-{{ carta.icono or 'bolt' }}"></i> {{ carta.titulo }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">La carta que activará esta ruta alternativa</small>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Escena donde aparece <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="escena_id" 
+                                   value="{{ ruta.escena_id if ruta else 3 }}" min="1" required>
+                            <small class="text-muted">Ej: 3 (la carta aparece en la escena 3)</small>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Nuevo contexto <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="nuevo_contexto" rows="3" required>{{ ruta.nuevo_contexto if ruta else '' }}</textarea>
+                            <small class="text-muted">La nueva situación que enfrenta el jugador</small>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Nuevo problema <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="nuevo_problema" rows="2" required>{{ ruta.nuevo_problema if ruta else '' }}</textarea>
+                            <small class="text-muted">El nuevo problema que aparece en esta ruta</small>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Siguiente escena <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="siguiente_escena" 
+                                   value="{{ ruta.siguiente_escena if ruta else 4 }}" min="1" required>
+                        </div>
+
+                        <div class="col-12">
+                            <hr>
+                            <h6 class="fw-bold">Opciones de la ruta alternativa</h6>
+                            <p class="text-muted small">Define hasta 3 opciones para el jugador</p>
+
+                            <!-- Opción 1 -->
+                            <div class="opcion-ruta">
+                                <div class="opcion-header">Opción 1</div>
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <input type="text" class="form-control" name="opcion1_texto" 
+                                               value="{{ ruta.opciones[0].texto if ruta and ruta.opciones|length > 0 else '' }}"
+                                               placeholder="Texto de la opción">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion1_participacion" 
+                                               value="{{ ruta.opciones[0].consecuencias.Participacion if ruta and ruta.opciones|length > 0 and ruta.opciones[0].consecuencias else '' }}"
+                                               placeholder="Participación">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion1_confianza" 
+                                               value="{{ ruta.opciones[0].consecuencias.Confianza if ruta and ruta.opciones|length > 0 and ruta.opciones[0].consecuencias else '' }}"
+                                               placeholder="Confianza">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion1_educacion" 
+                                               value="{{ ruta.opciones[0].consecuencias.Educacion if ruta and ruta.opciones|length > 0 and ruta.opciones[0].consecuencias else '' }}"
+                                               placeholder="Educación">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion1_seguridad" 
+                                               value="{{ ruta.opciones[0].consecuencias.Seguridad if ruta and ruta.opciones|length > 0 and ruta.opciones[0].consecuencias else '' }}"
+                                               placeholder="Seguridad">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion1_economia" 
+                                               value="{{ ruta.opciones[0].consecuencias.Economia if ruta and ruta.opciones|length > 0 and ruta.opciones[0].consecuencias else '' }}"
+                                               placeholder="Economía">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Opción 2 -->
+                            <div class="opcion-ruta">
+                                <div class="opcion-header">Opción 2</div>
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <input type="text" class="form-control" name="opcion2_texto" 
+                                               value="{{ ruta.opciones[1].texto if ruta and ruta.opciones|length > 1 else '' }}"
+                                               placeholder="Texto de la opción">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion2_participacion" 
+                                               value="{{ ruta.opciones[1].consecuencias.Participacion if ruta and ruta.opciones|length > 1 and ruta.opciones[1].consecuencias else '' }}"
+                                               placeholder="Participación">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion2_confianza" 
+                                               value="{{ ruta.opciones[1].consecuencias.Confianza if ruta and ruta.opciones|length > 1 and ruta.opciones[1].consecuencias else '' }}"
+                                               placeholder="Confianza">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion2_educacion" 
+                                               value="{{ ruta.opciones[1].consecuencias.Educacion if ruta and ruta.opciones|length > 1 and ruta.opciones[1].consecuencias else '' }}"
+                                               placeholder="Educación">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion2_seguridad" 
+                                               value="{{ ruta.opciones[1].consecuencias.Seguridad if ruta and ruta.opciones|length > 1 and ruta.opciones[1].consecuencias else '' }}"
+                                               placeholder="Seguridad">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion2_economia" 
+                                               value="{{ ruta.opciones[1].consecuencias.Economia if ruta and ruta.opciones|length > 1 and ruta.opciones[1].consecuencias else '' }}"
+                                               placeholder="Economía">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Opción 3 -->
+                            <div class="opcion-ruta">
+                                <div class="opcion-header">Opción 3</div>
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <input type="text" class="form-control" name="opcion3_texto" 
+                                               value="{{ ruta.opciones[2].texto if ruta and ruta.opciones|length > 2 else '' }}"
+                                               placeholder="Texto de la opción">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion3_participacion" 
+                                               value="{{ ruta.opciones[2].consecuencias.Participacion if ruta and ruta.opciones|length > 2 and ruta.opciones[2].consecuencias else '' }}"
+                                               placeholder="Participación">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion3_confianza" 
+                                               value="{{ ruta.opciones[2].consecuencias.Confianza if ruta and ruta.opciones|length > 2 and ruta.opciones[2].consecuencias else '' }}"
+                                               placeholder="Confianza">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion3_educacion" 
+                                               value="{{ ruta.opciones[2].consecuencias.Educacion if ruta and ruta.opciones|length > 2 and ruta.opciones[2].consecuencias else '' }}"
+                                               placeholder="Educación">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion3_seguridad" 
+                                               value="{{ ruta.opciones[2].consecuencias.Seguridad if ruta and ruta.opciones|length > 2 and ruta.opciones[2].consecuencias else '' }}"
+                                               placeholder="Seguridad">
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control form-control-sm" name="opcion3_economia" 
+                                               value="{{ ruta.opciones[2].consecuencias.Economia if ruta and ruta.opciones|length > 2 and ruta.opciones[2].consecuencias else '' }}"
+                                               placeholder="Economía">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i> Guardar Ruta
+                        </button>
+                        <a href="{{ url_for('admin_rutas_alternativas') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i> Volver
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

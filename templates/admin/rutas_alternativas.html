@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Rutas Alternativas - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ruta-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        border-left: 4px solid #8B5CF6;
+        transition: var(--transition);
+        height: 100%;
+    }
+    .ruta-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+    }
+    .ruta-card .ruta-carta {
+        font-weight: 700;
+        color: #8B5CF6;
+    }
+    .ruta-card .ruta-escena {
+        font-size: 0.85rem;
+        color: var(--text-gray);
+    }
+    .ruta-card .ruta-contexto {
+        font-size: 0.9rem;
+        margin: 0.5rem 0;
+    }
+    .ruta-card .ruta-opciones {
+        font-size: 0.8rem;
+        color: var(--text-gray);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">
+                <i class="fas fa-route text-primary me-2"></i> Rutas Alternativas
+            </h1>
+            <p class="text-muted">Cuando aparece una carta, puede desviar la historia por una ruta alternativa</p>
+        </div>
+        <a href="{{ url_for('admin_ruta_alternativa_nueva') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Nueva Ruta
+        </a>
+    </div>
+
+    <div class="row g-4">
+        {% for ruta in rutas %}
+        <div class="col-md-6 col-lg-4">
+            <div class="ruta-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="ruta-carta">
+                            <i class="fas fa-{{ ruta.carta_icono or 'bolt' }} me-1"></i>
+                            {{ ruta.carta_titulo or 'Sin carta' }}
+                        </span>
+                    </div>
+                    <span class="badge bg-secondary">Escena {{ ruta.escena_id }}</span>
+                </div>
+                <div class="ruta-escena">
+                    <i class="fas fa-arrow-right me-1"></i> Siguiente escena: {{ ruta.siguiente_escena }}
+                </div>
+                <div class="ruta-contexto">{{ ruta.nuevo_contexto[:100] }}{% if ruta.nuevo_contexto|length > 100 %}...{% endif %}</div>
+                <div class="ruta-opciones">
+                    <i class="fas fa-list me-1"></i> {{ ruta.opciones|length if ruta.opciones else 0 }} opciones
+                </div>
+                <div class="mt-3 d-flex gap-2">
+                    <a href="{{ url_for('admin_ruta_alternativa_editar', id=ruta.id) }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarRuta({{ ruta.id }})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-route text-muted" style="font-size: 4rem;"></i>
+                <h4 class="mt-3">No hay rutas alternativas</h4>
+                <p class="text-muted">Crea una ruta para que una carta pueda cambiar el curso de la historia.</p>
+                <a href="{{ url_for('admin_ruta_alternativa_nueva') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i> Crear ruta
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function eliminarRuta(id) {
+    if (!confirm('¿Estás seguro de eliminar esta ruta alternativa?')) return;
+    fetch('/admin/ruta_alternativa/eliminar/' + id, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    })
+    .catch(err => alert('❌ Error al eliminar'));
+}
+</script>
+{% endblock %}

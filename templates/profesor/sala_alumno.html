@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Progreso de {{ alumno.nombre }} - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card-alumno {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        border: 1px solid #E5E7EB;
+        height: 100%;
+    }
+    .stat-card-alumno .number {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #2563EB;
+    }
+    .stat-card-alumno .label {
+        font-size: 0.8rem;
+        color: #64748B;
+    }
+    .leccion-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #F3F4F6;
+    }
+    .leccion-item:last-child {
+        border-bottom: none;
+    }
+    .leccion-item .estado-icon {
+        width: 32px;
+        text-align: center;
+    }
+    .leccion-item .leccion-info {
+        flex: 1;
+    }
+    .leccion-item .leccion-info .titulo {
+        font-weight: 500;
+    }
+    .leccion-item .leccion-info .fecha {
+        font-size: 0.8rem;
+        color: #64748B;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">
+                <i class="fas fa-user-graduate text-primary me-2"></i> 
+                {{ alumno.nombre }} {{ alumno.apellido_paterno or '' }}
+            </h1>
+            <p class="text-muted">
+                <i class="fas fa-envelope me-1"></i> {{ alumno.email }}
+                <span class="ms-3">
+                    <i class="fas fa-chalkboard me-1"></i> Sala: {{ sala.nombre }}
+                </span>
+            </p>
+        </div>
+        <a href="{{ url_for('profesor_sala_detalle', sala_id=sala.id) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i> Volver a la sala
+        </a>
+    </div>
+
+    <!-- ESTADÍSTICAS DEL ALUMNO -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="stat-card-alumno">
+                <div class="number">{{ completadas }}</div>
+                <div class="label">✅ Lecciones completadas</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card-alumno">
+                <div class="number">{{ total_lecciones }}</div>
+                <div class="label">📚 Total lecciones</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card-alumno">
+                <div class="number">{{ promedio }}%</div>
+                <div class="label">📊 Promedio</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card-alumno">
+                <div class="number">{{ alumno.nivel or 1 }}</div>
+                <div class="label">📈 Nivel</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BARRA DE PROGRESO GENERAL -->
+    <div class="card-modern mb-4">
+        <h6 class="fw-bold">Progreso general</h6>
+        <div class="progress" style="height: 20px;">
+            <div class="progress-bar bg-success" style="width: {{ (completadas / total_lecciones * 100) if total_lecciones > 0 else 0 }}%;">
+                {{ (completadas / total_lecciones * 100)|round|int if total_lecciones > 0 else 0 }}%
+            </div>
+        </div>
+        <small class="text-muted">{{ completadas }} de {{ total_lecciones }} lecciones completadas</small>
+    </div>
+
+    <!-- PROGRESO DETALLADO POR LECCIÓN -->
+    <div class="card-modern">
+        <h5 class="fw-bold">
+            <i class="fas fa-list-check text-primary me-2"></i> Progreso por Lección
+        </h5>
+        <div class="mt-3">
+            {% for item in progreso %}
+            <div class="leccion-item">
+                <div class="estado-icon">
+                    {% if item.completada %}
+                    <i class="fas fa-check-circle text-success fs-5"></i>
+                    {% else %}
+                    <i class="fas fa-clock text-secondary fs-5"></i>
+                    {% endif %}
+                </div>
+                <div class="leccion-info">
+                    <div class="titulo">
+                        <i class="fas fa-{{ item.icono or 'book' }} text-primary me-1"></i>
+                        {{ item.titulo }}
+                    </div>
+                    <div class="fecha">
+                        {% if item.completada %}
+                        Completada el {{ item.fecha_completada.strftime('%d/%m/%Y') if item.fecha_completada else 'N/A' }}
+                        {% else %}
+                        Pendiente
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    {% if item.completada %}
+                    <span class="badge bg-success">{{ item.puntaje or 0 }}%</span>
+                    {% else %}
+                    <span class="badge bg-secondary">-</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <p class="text-muted text-center">No hay lecciones disponibles</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

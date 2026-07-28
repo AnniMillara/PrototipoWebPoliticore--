@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}{{ leccion.titulo }} - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .lesson-container { max-width: 800px; margin: 0 auto; }
+    .section-card {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        border-left: 4px solid var(--primary-blue);
+    }
+    .section-card.highlight { background: #FFFBEB; border-left-color: #F59E0B; }
+    .story-box { background: var(--bg-light); border-radius: 12px; padding: 1.5rem; margin: 1rem 0; border: 1px solid #E5E7EB; }
+    .curiosity-box { background: linear-gradient(135deg, #DBEAFE, #EFF6FF); border-radius: 12px; padding: 1.5rem; border: 1px solid #93C5FD; }
+    .xp-earned { display: inline-block; padding: 4px 16px; background: #FEF3C7; color: #D97706; border-radius: 50px; font-weight: 600; }
+    .activity-option {
+        display: block; padding: 1rem; background: var(--bg-light); border: 2px solid #E5E7EB; border-radius: 8px;
+        margin: 0.5rem 0; cursor: pointer; transition: var(--transition);
+    }
+    .activity-option:hover { border-color: var(--primary-blue); background: white; }
+    .activity-option.selected { border-color: var(--primary-blue); background: var(--primary-light); }
+    .activity-option.correct { border-color: #10B981; background: #D1FAE5; }
+    .activity-option.incorrect { border-color: #EF4444; background: #FEE2E2; }
+    .actividad-item {
+        border-left: 4px solid #8B5CF6;
+        background: #FAF5FF;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="lesson-container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <span class="badge bg-primary mb-2">{{ leccion.mundo }}</span>
+                <h1 class="fw-bold">{{ leccion.titulo }}</h1>
+            </div>
+            <span class="xp-earned"><i class="fas fa-star me-1"></i> {{ leccion.xp }} XP</span>
+        </div>
+
+        <!-- Situación inicial -->
+        <div class="section-card highlight">
+            <h6 class="fw-bold"><i class="fas fa-hook me-2"></i> Situación inicial</h6>
+            <p class="fs-5">{{ leccion.situacion_inicial }}</p>
+        </div>
+
+        <!-- Explicación -->
+        <div class="section-card">
+            <h6 class="fw-bold"><i class="fas fa-book me-2"></i> Explicación</h6>
+            <p>{{ leccion.explicacion }}</p>
+        </div>
+
+        <!-- Ejemplo -->
+        <div class="section-card">
+            <h6 class="fw-bold" style="color: #F59E0B;"><i class="fas fa-lightbulb me-2"></i> Ejemplo cotidiano</h6>
+            <div class="story-box"><p class="mb-0">{{ leccion.ejemplo }}</p></div>
+        </div>
+
+        <!-- Mini historia -->
+        <div class="section-card highlight">
+            <h6 class="fw-bold"><i class="fas fa-users me-2"></i> Mini historia</h6>
+            <div class="story-box"><p class="mb-0">{{ leccion.historia }}</p></div>
+        </div>
+
+        <!-- Curiosidad -->
+        <div class="section-card">
+            <div class="curiosity-box">
+                <h6 class="fw-bold"><i class="fas fa-gem text-primary me-2"></i> ¿Sabías que...?</h6>
+                <p class="mb-0">{{ leccion.curiosidad }}</p>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- ACTIVIDADES (TESTS) DE LA LECCIÓN -->
+        <!-- ============================================ -->
+        <div class="section-card">
+            <h5 class="fw-bold mb-3">
+                <i class="fas fa-puzzle-piece text-primary me-2"></i> Actividades de la lección
+                <span class="badge bg-secondary ms-2">{{ leccion.actividades|length }} preguntas</span>
+            </h5>
+            
+            {% if leccion.actividades %}
+                {% for actividad in leccion.actividades %}
+                    {% set actividad_index = loop.index0 %}
+                    <div class="actividad-item mb-4 p-3 border rounded">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-semibold">Pregunta {{ loop.index }}</span>
+                            <span class="badge bg-info">{{ actividad.tipo|capitalize }}</span>
+                        </div>
+                        <p class="fw-semibold">{{ actividad.pregunta }}</p>
+                        
+                        <div class="mt-2">
+                            {% for opcion in actividad.opciones %}
+                            <div class="activity-option" onclick="seleccionarActividad(this, {{ loop.index0 }}, {{ actividad_index }})" data-actividad="{{ actividad_index }}">
+                                <span class="badge bg-light me-2">{{ loop.index }}</span> {{ opcion }}
+                            </div>
+                            {% endfor %}
+                            <button class="btn btn-primary btn-sm mt-2 btn-verificar" style="display:none;" onclick="verificarActividad({{ actividad_index }})">
+                                <i class="fas fa-check me-1"></i> Verificar
+                            </button>
+                            <div class="resultado-actividad mt-2" id="resultado-{{ actividad_index }}" style="display:none;"></div>
+                        </div>
+                        
+                        {% if actividad.explicacion %}
+                        <div class="mt-2 text-muted small">
+                            <i class="fas fa-lightbulb me-1"></i> {{ actividad.explicacion }}
+                        </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted">No hay actividades para esta lección.</p>
+            {% endif %}
+        </div>
+
+        <!-- Reflexión final -->
+        <div class="section-card" style="border-left-color: #8B5CF6;">
+            <h6 class="fw-bold" style="color: #8B5CF6;"><i class="fas fa-thumbs-up me-2"></i> Reflexión final</h6>
+            <p class="fs-6">{{ leccion.reflexion }}</p>
+        </div>
+
+        <div class="d-flex justify-content-between mt-4">
+            <a href="{{ url_for('lecciones') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i> Volver
+            </a>
+            <button class="btn btn-success" onclick="completarLeccion()">
+                <i class="fas fa-check-circle me-2"></i> Completar lección
+            </button>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+// Datos de la lección
+const leccionData = {{ leccion | tojson | safe }};
+let selecciones = {};
+
+function seleccionarActividad(element, opcionIndex, actividadIndex) {
+    // Limpiar selecciones anteriores de esta actividad
+    const parent = element.closest('.actividad-item');
+    parent.querySelectorAll('.activity-option').forEach(el => {
+        el.classList.remove('selected', 'correct', 'incorrect');
+    });
+    element.classList.add('selected');
+    
+    // Guardar selección
+    selecciones[actividadIndex] = opcionIndex;
+    
+    // Mostrar botón verificar
+    parent.querySelector('.btn-verificar').style.display = 'block';
+    document.getElementById('resultado-' + actividadIndex).style.display = 'none';
+}
+
+function verificarActividad(actividadIndex) {
+    if (selecciones[actividadIndex] === undefined) {
+        alert('Por favor selecciona una opción primero');
+        return;
+    }
+    
+    const actividad = leccionData.actividades[actividadIndex];
+    const correcta = actividad.respuesta_correcta;
+    const resultado = document.getElementById('resultado-' + actividadIndex);
+    const parent = document.querySelectorAll('.actividad-item')[actividadIndex];
+    const opciones = parent.querySelectorAll('.activity-option');
+    
+    if (selecciones[actividadIndex] === correcta) {
+        resultado.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i> ¡Correcto! ' + actividad.explicacion + '</div>';
+        opciones[selecciones[actividadIndex]].classList.add('correct');
+    } else {
+        resultado.innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i> ' + actividad.explicacion + '</div>';
+        opciones[selecciones[actividadIndex]].classList.add('incorrect');
+        opciones[correcta].classList.add('correct');
+    }
+    resultado.style.display = 'block';
+}
+
+function completarLeccion() {
+    if (!confirm('¿Completaste todas las actividades de esta lección?')) return;
+    
+    fetch('/api/completar_leccion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leccion_id: {{ leccion.id }} })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('🎉 ¡Felicidades! Has completado la lección. +' + data.xp + ' XP');
+            window.location.href = '/lecciones';
+        }
+    })
+    .catch(error => {
+        alert('❌ Error al completar la lección. Intenta nuevamente.');
+        console.error(error);
+    });
+}
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}{{ autoridad.nombre }} {{ autoridad.apellido or '' }} - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .perfil-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    .perfil-header {
+        background: white;
+        border-radius: var(--radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+    .perfil-header .avatar-large {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 4px solid var(--primary-light);
+        flex-shrink: 0;
+    }
+    .perfil-header .avatar-placeholder {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: var(--bg-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .perfil-header .avatar-placeholder i {
+        font-size: 4rem;
+        color: var(--text-gray);
+    }
+    .perfil-header .info h1 {
+        font-weight: 700;
+        font-size: 1.8rem;
+        margin-bottom: 2px;
+    }
+    .perfil-header .info .cargo {
+        color: var(--primary-blue);
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    .perfil-header .info .badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+    }
+    .section-card {
+        background: white;
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1.5rem;
+        border-left: 4px solid var(--primary-blue);
+    }
+    .section-card .section-title {
+        font-weight: 700;
+        font-size: 1rem;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .section-card .section-title i {
+        color: var(--primary-blue);
+        width: 20px;
+    }
+    .section-card p {
+        margin-bottom: 0;
+        color: var(--text-gray);
+        line-height: 1.6;
+    }
+    .section-card ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .section-card ul li {
+        padding: 6px 0;
+        border-bottom: 1px solid #F3F4F6;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .section-card ul li:last-child {
+        border-bottom: none;
+    }
+    .section-card ul li i {
+        color: var(--primary-blue);
+        margin-top: 4px;
+        flex-shrink: 0;
+    }
+    .proyecto-item {
+        background: var(--bg-light);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+    }
+    .proyecto-item:last-child {
+        margin-bottom: 0;
+    }
+    .proyecto-item .proyecto-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 4px;
+    }
+    .proyecto-item .proyecto-header h6 {
+        font-weight: 600;
+        margin-bottom: 0;
+        font-size: 0.95rem;
+    }
+    .proyecto-item .estado-badge {
+        font-size: 0.65rem;
+        padding: 2px 10px;
+        border-radius: 50px;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+    .proyecto-item .estado-badge.implementado { background: #D1FAE5; color: #065F46; }
+    .proyecto-item .estado-badge.proceso { background: #FEF3C7; color: #D97706; }
+    .proyecto-item .estado-badge.discusion { background: #DBEAFE; color: #1E40AF; }
+    .proyecto-item .estado-badge.desarrollo { background: #E5E7EB; color: #4B5563; }
+    .proyecto-item p {
+        font-size: 0.9rem;
+        color: var(--text-gray);
+        margin-bottom: 4px;
+    }
+    .proyecto-item .impacto {
+        font-size: 0.85rem;
+        color: var(--text-gray);
+        background: white;
+        padding: 6px 10px;
+        border-radius: 6px;
+        margin-top: 4px;
+        border-left: 3px solid var(--primary-blue);
+    }
+    .vacio {
+        color: var(--text-light);
+        font-style: italic;
+        font-size: 0.9rem;
+    }
+    @media (max-width: 768px) {
+        .perfil-header {
+            flex-direction: column;
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="perfil-container">
+
+        <!-- HEADER -->
+        <div class="perfil-header">
+            {% if autoridad.foto %}
+            <img src="{{ autoridad.foto }}" alt="{{ autoridad.nombre }}" class="avatar-large">
+            {% else %}
+            <div class="avatar-placeholder">
+                <i class="fas fa-user"></i>
+            </div>
+            {% endif %}
+            <div class="info">
+                <h1>{{ autoridad.nombre }} {{ autoridad.apellido or '' }}</h1>
+                <div class="cargo">{{ autoridad.cargo }}</div>
+                <div class="badges">
+                    <span class="badge bg-secondary">{{ autoridad.partido or 'Independiente' }}</span>
+                    <span class="badge bg-primary">{{ autoridad.poder_del_estado or 'Estado' }}</span>
+                    <span class="badge bg-light text-dark">Desde {{ autoridad.fecha_inicio or 'N/A' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- BIOGRAFÍA -->
+        {% if autoridad.biografia %}
+        <div class="section-card">
+            <div class="section-title"><i class="fas fa-user"></i> Biografía</div>
+            <p>{{ autoridad.biografia }}</p>
+        </div>
+        {% endif %}
+
+        <!-- ¿CÓMO FUNCIONA SU CARGO? -->
+        {% if autoridad.como_funciona_su_cargo %}
+        <div class="section-card">
+            <div class="section-title"><i class="fas fa-question-circle"></i> ¿Qué hace este cargo?</div>
+            <p>{{ autoridad.como_funciona_su_cargo }}</p>
+        </div>
+        {% endif %}
+
+        <!-- ¿QUÉ HACE EN UN DÍA NORMAL? -->
+        {% if autoridad.que_hace_en_un_dia_normal %}
+        <div class="section-card">
+            <div class="section-title"><i class="fas fa-clock"></i> ¿Qué hace en un día normal?</div>
+            <p>{{ autoridad.que_hace_en_un_dia_normal }}</p>
+        </div>
+        {% endif %}
+
+        <!-- ¿POR QUÉ ES IMPORTANTE? -->
+        {% if autoridad.porque_es_importante %}
+        <div class="section-card">
+            <div class="section-title"><i class="fas fa-star"></i> ¿Por qué es importante?</div>
+            <p>{{ autoridad.porque_es_importante }}</p>
+        </div>
+        {% endif %}
+
+        <!-- EJEMPLO COTIDIANO -->
+        {% if autoridad.ejemplo_cotidiano %}
+        <div class="section-card" style="border-left-color: #F59E0B; background: #FFFBEB;">
+            <div class="section-title" style="color: #D97706;"><i class="fas fa-lightbulb"></i> Ejemplo cotidiano</div>
+            <p>{{ autoridad.ejemplo_cotidiano }}</p>
+        </div>
+        {% endif %}
+
+        <!-- ATRIBUCIONES -->
+        {% if autoridad.atribuciones and autoridad.atribuciones|length > 0 %}
+        <div class="section-card">
+            <div class="section-title"><i class="fas fa-list-check"></i> Atribuciones</div>
+            <ul>
+                {% for atribucion in autoridad.atribuciones %}
+                <li><i class="fas fa-check-circle text-success"></i> {{ atribucion }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- PROYECTOS -->
+        {% if autoridad.proyectos and autoridad.proyectos|length > 0 %}
+        <div class="section-card" style="border-left-color: #8B5CF6;">
+            <div class="section-title"><i class="fas fa-file-lines"></i> Proyectos</div>
+            {% for proyecto in autoridad.proyectos %}
+            <div class="proyecto-item">
+                <div class="proyecto-header">
+                    <h6>{{ proyecto.nombre }}</h6>
+                    <span class="estado-badge {{ proyecto.estado|lower|replace(' ', '') }}">
+                        {{ proyecto.estado }}
+                    </span>
+                </div>
+                <p>{{ proyecto.descripcion }}</p>
+                {% if proyecto.impacto %}
+                <div class="impacto"><strong>Impacto:</strong> {{ proyecto.impacto }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- VOLVER -->
+        <div class="mt-3">
+            <a href="{{ url_for('estado') }}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-2"></i> Volver a autoridades
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}{{ sala.nombre }} - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">
+                <i class="fas fa-chalkboard text-primary me-2"></i> {{ sala.nombre }}
+            </h1>
+            <p class="text-muted">
+                <i class="fas fa-user me-1"></i> Profesor: {{ sala.profesor_nombre }}
+            </p>
+        </div>
+        <a href="{{ url_for('estudiante_mis_clases') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i> Volver
+        </a>
+    </div>
+
+    <!-- Progreso -->
+    <div class="card-modern">
+        <h5 class="fw-bold">
+            <i class="fas fa-chart-line text-primary me-2"></i> Mi progreso
+        </h5>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Lección</th>
+                        <th>Estado</th>
+                        <th>Puntaje</th>
+                        <th>Fecha</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in progreso %}
+                    <tr>
+                        <td>{{ item.titulo }}</td>
+                        <td>
+                            {% if item.completada %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check-circle me-1"></i> Completada
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-clock me-1"></i> Pendiente
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.puntaje or 0 }}%</td>
+                        <td>{{ item.fecha_completada.strftime('%d/%m/%Y') if item.fecha_completada else '-' }}</td>
+                        <td>
+                            <a href="{{ url_for('detalle_leccion', id=item.id) }}?sala_id={{ sala.id }}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-eye me-1"></i> Ver lección
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

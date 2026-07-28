@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Mis Salas de Clase - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold">
+            <i class="fas fa-chalkboard text-primary me-2"></i> Mis Salas de Clase
+        </h1>
+        <a href="{{ url_for('profesor_sala_nueva') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Nueva Sala
+        </a>
+    </div>
+
+    {% if salas %}
+    <div class="row g-4">
+        {% for sala in salas %}
+        <div class="col-md-4">
+            <div class="card-modern">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h5 class="fw-bold mb-1">{{ sala.nombre }}</h5>
+                    <span class="badge bg-primary">{{ sala.total_alumnos or 0 }} alumnos</span>
+                </div>
+                <p class="text-muted small">{{ sala.descripcion or 'Sin descripción' }}</p>
+                <div class="mb-2">
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-key me-1"></i> Código: {{ sala.codigo_acceso }}
+                    </span>
+                </div>
+                <div class="small text-muted mb-2">
+                    <i class="fas fa-check-circle me-1"></i> 
+                    {{ sala.total_lecciones_completadas or 0 }} lecciones completadas
+                </div>
+                <a href="{{ url_for('profesor_sala_detalle', sala_id=sala.id) }}" class="btn btn-primary btn-sm w-100">
+                    <i class="fas fa-eye me-1"></i> Ver sala
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-chalkboard text-muted" style="font-size: 4rem;"></i>
+        <h4 class="mt-3">No tienes salas creadas</h4>
+        <p class="text-muted">Crea tu primera sala de clase para empezar a gestionar a tus alumnos.</p>
+        <a href="{{ url_for('profesor_sala_nueva') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Crear sala
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}{{ sala.nombre }} - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        border: 1px solid #E5E7EB;
+        height: 100%;
+    }
+    .stat-card .number {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #2563EB;
+    }
+    .stat-card .label {
+        font-size: 0.8rem;
+        color: #64748B;
+    }
+    .progress-leccion {
+        height: 8px;
+        border-radius: 4px;
+        background: #E5E7EB;
+        overflow: hidden;
+    }
+    .progress-leccion .fill {
+        height: 100%;
+        border-radius: 4px;
+        background: linear-gradient(90deg, #2563EB, #7C3AED);
+        transition: width 0.6s ease;
+    }
+    .alumno-row:hover {
+        background: #F8FAFC;
+    }
+    .badge-completada {
+        background: #D1FAE5;
+        color: #065F46;
+    }
+    .badge-pendiente {
+        background: #FEF3C7;
+        color: #D97706;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">
+                <i class="fas fa-chalkboard text-primary me-2"></i> {{ sala.nombre }}
+            </h1>
+            <p class="text-muted">
+                <i class="fas fa-key me-1"></i> Código: <strong>{{ sala.codigo_acceso }}</strong>
+                <span class="ms-3">
+                    <i class="fas fa-users me-1"></i> {{ estadisticas.total_alumnos }} alumnos
+                </span>
+                <span class="ms-3">
+                    <i class="fas fa-book me-1"></i> {{ estadisticas.total_lecciones }} lecciones
+                </span>
+            </p>
+        </div>
+        <a href="{{ url_for('profesor_salas') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i> Volver
+        </a>
+    </div>
+
+    <!-- ESTADÍSTICAS GENERALES -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="stat-card">
+                <div class="number">{{ estadisticas.total_alumnos }}</div>
+                <div class="label">👨‍🎓 Alumnos</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card">
+                <div class="number">{{ estadisticas.total_lecciones }}</div>
+                <div class="label">📚 Lecciones</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card">
+                <div class="number">{{ estadisticas.lecciones_completadas_totales }}</div>
+                <div class="label">✅ Lecciones completadas</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card">
+                <div class="number">{{ estadisticas.promedio_general }}%</div>
+                <div class="label">📊 Promedio general</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROGRESO POR LECCIÓN -->
+    <div class="card-modern mb-4">
+        <h5 class="fw-bold">
+            <i class="fas fa-chart-bar text-primary me-2"></i> Progreso por Lección
+            <span class="badge bg-secondary ms-2">{{ lecciones_progreso|length }}</span>
+        </h5>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Lección</th>
+                        <th>Alumnos completaron</th>
+                        <th>Progreso</th>
+                        <th>Promedio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for leccion in lecciones_progreso %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            <i class="fas fa-{{ leccion.icono or 'book' }} text-primary me-1"></i>
+                            {{ leccion.titulo }}
+                        </td>
+                        <td>
+                            <span class="fw-bold">{{ leccion.alumnos_completaron }}</span>
+                            <span class="text-muted">/ {{ total_alumnos }}</span>
+                        </td>
+                        <td style="min-width: 150px;">
+                            <div class="progress-leccion">
+                                <div class="fill" style="width: {{ leccion.porcentaje }}%;"></div>
+                            </div>
+                            <small class="text-muted">{{ leccion.porcentaje }}%</small>
+                        </td>
+                        <td>
+                            {% if leccion.promedio_puntaje_leccion %}
+                            <span class="badge bg-info">{{ leccion.promedio_puntaje_leccion }}%</span>
+                            {% else %}
+                            <span class="badge bg-secondary">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">No hay lecciones disponibles</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- LISTA DE ALUMNOS -->
+    <div class="card-modern">
+        <h5 class="fw-bold">
+            <i class="fas fa-users text-primary me-2"></i> Alumnos
+            <span class="badge bg-secondary ms-2">{{ alumnos|length }}</span>
+        </h5>
+        {% if alumnos %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Alumno</th>
+                        <th>Email</th>
+                        <th>Lecciones</th>
+                        <th>Promedio</th>
+                        <th>Nivel</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alumno in alumnos %}
+                    <tr class="alumno-row">
+                        <td>
+                            <i class="fas fa-user-circle text-primary me-1"></i>
+                            {{ alumno.nombre }} {{ alumno.apellido_paterno or '' }}
+                        </td>
+                        <td>{{ alumno.email }}</td>
+                        <td>
+                            <span class="badge bg-success">{{ alumno.lecciones_completadas or 0 }}</span>
+                            <span class="text-muted small">/ {{ estadisticas.total_lecciones }}</span>
+                        </td>
+                        <td>
+                            {% if alumno.promedio_puntaje %}
+                            <span class="badge {% if alumno.promedio_puntaje >= 70 %}bg-success{% elif alumno.promedio_puntaje >= 40 %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ alumno.promedio_puntaje }}%
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">-</span>
+                            {% endif %}
+                        </td>
+                        <td>Nivel {{ alumno.nivel or 1 }}</td>
+                        <td>
+                            <a href="{{ url_for('profesor_sala_alumno', sala_id=sala.id, alumno_id=alumno.id) }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-chart-line me-1"></i> Ver progreso
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-users text-muted" style="font-size: 3rem;"></i>
+            <p class="text-muted mt-2">No hay alumnos en esta sala aún.</p>
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Comparte el código <strong>{{ sala.codigo_acceso }}</strong> con tus alumnos para que se unan.
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

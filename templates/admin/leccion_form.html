@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if leccion else 'Nueva' }} Lección - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pregunta-card {
+        background: var(--bg-light);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #E5E7EB;
+        position: relative;
+        transition: var(--transition);
+    }
+    .pregunta-card:hover {
+        border-color: var(--primary-blue);
+        box-shadow: var(--shadow-sm);
+    }
+    .pregunta-card .btn-remove-pregunta {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        color: #EF4444;
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 0 8px;
+        transition: var(--transition);
+    }
+    .pregunta-card .btn-remove-pregunta:hover {
+        transform: scale(1.2);
+        color: #DC2626;
+    }
+    .btn-add-pregunta {
+        background: white;
+        border: 2px dashed var(--primary-blue);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: var(--transition);
+        width: 100%;
+        color: var(--primary-blue);
+        font-weight: 600;
+    }
+    .btn-add-pregunta:hover {
+        background: var(--primary-light);
+        border-color: var(--primary-blue);
+        transform: translateY(-2px);
+    }
+    .opcion-row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    .opcion-row .opcion-index {
+        font-weight: 700;
+        color: var(--text-gray);
+        min-width: 30px;
+    }
+    .opcion-row input {
+        flex: 1;
+    }
+    .opcion-row .radio-correcta {
+        margin-left: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-modern">
+                <h4 class="fw-bold mb-4">
+                    <i class="fas fa-{{ 'edit' if leccion else 'plus' }} text-primary me-2"></i>
+                    {{ 'Editar' if leccion else 'Nueva' }} Lección
+                </h4>
+
+                <form method="POST" id="formLeccion">
+                    <!-- ======================== -->
+                    <!-- DATOS DE LA LECCIÓN      -->
+                    <!-- ======================== -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Título <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="titulo"
+                            value="{{ leccion.titulo if leccion else '' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mundo <span class="text-danger">*</span></label>
+                        <select class="form-select" name="mundo_id" required>
+                            <option value="">Seleccionar mundo...</option>
+                            {% for mundo in mundos %}
+                            <option value="{{ mundo.id }}" {% if leccion and leccion.mundo_id==mundo.id %}selected{% endif %}>
+                                {{ mundo.nombre }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Situación Inicial</label>
+                        <textarea class="form-control" name="situacion_inicial" rows="2">{{ leccion.situacion_inicial if leccion else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Explicación</label>
+                        <textarea class="form-control" name="explicacion" rows="4">{{ leccion.explicacion if leccion else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Ejemplo</label>
+                        <textarea class="form-control" name="ejemplo" rows="2">{{ leccion.ejemplo if leccion else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Historia</label>
+                        <textarea class="form-control" name="historia" rows="3">{{ leccion.historia if leccion else '' }}</textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Curiosidad</label>
+                                <input type="text" class="form-control" name="curiosidad"
+                                    value="{{ leccion.curiosidad if leccion else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Reflexión</label>
+                                <input type="text" class="form-control" name="reflexion"
+                                    value="{{ leccion.reflexion if leccion else '' }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">XP</label>
+                                <input type="number" class="form-control" name="xp"
+                                    value="{{ leccion.xp if leccion else 50 }}">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Icono (Font Awesome)</label>
+                                <input type="text" class="form-control" name="icono"
+                                    value="{{ leccion.icono if leccion else 'book' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Activa</label>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" name="activo" {% if leccion and leccion.activo %}checked{% endif %}>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- ======================== -->
+                    <!-- ACTIVIDAD INTERACTIVA    -->
+                    <!-- ======================== -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold">
+                            <i class="fas fa-puzzle-piece text-primary me-2"></i> Preguntas de la actividad
+                        </h5>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="agregarPregunta()">
+                            <i class="fas fa-plus me-1"></i> Agregar pregunta
+                        </button>
+                    </div>
+                    <p class="text-muted small">Cada pregunta debe tener 3 opciones y una respuesta correcta.</p>
+
+                    <div id="preguntasContainer">
+                        {% if leccion and leccion.actividades %}
+                            {% for actividad in leccion.actividades %}
+                            <div class="pregunta-card" data-index="{{ loop.index0 }}">
+                                <button type="button" class="btn-remove-pregunta" onclick="eliminarPregunta(this)" title="Eliminar pregunta">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
+                                <div class="mb-2">
+                                    <label class="form-label fw-semibold">Pregunta <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="preguntas[]" 
+                                           value="{{ actividad.pregunta }}" required>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fw-semibold">Opciones</label>
+                                    <div class="opcion-row">
+                                        <span class="opcion-index">1.</span>
+                                        <input type="text" class="form-control" name="opciones1[]" 
+                                               value="{{ actividad.opciones[0] if actividad.opciones|length > 0 else '' }}" required>
+                                    </div>
+                                    <div class="opcion-row">
+                                        <span class="opcion-index">2.</span>
+                                        <input type="text" class="form-control" name="opciones2[]" 
+                                               value="{{ actividad.opciones[1] if actividad.opciones|length > 1 else '' }}" required>
+                                    </div>
+                                    <div class="opcion-row">
+                                        <span class="opcion-index">3.</span>
+                                        <input type="text" class="form-control" name="opciones3[]" 
+                                               value="{{ actividad.opciones[2] if actividad.opciones|length > 2 else '' }}" required>
+                                    </div>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Respuesta correcta <span class="text-danger">*</span></label>
+                                        <select class="form-select" name="respuestas_correctas[]" required>
+                                            <option value="0" {% if actividad.respuesta_correcta == 0 %}selected{% endif %}>Opción 1</option>
+                                            <option value="1" {% if actividad.respuesta_correcta == 1 %}selected{% endif %}>Opción 2</option>
+                                            <option value="2" {% if actividad.respuesta_correcta == 2 %}selected{% endif %}>Opción 3</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Explicación</label>
+                                        <input type="text" class="form-control" name="explicaciones[]" 
+                                               value="{{ actividad.explicacion }}">
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <!-- Pregunta por defecto si no hay -->
+                            <div class="pregunta-card" data-index="0">
+                                <button type="button" class="btn-remove-pregunta" onclick="eliminarPregunta(this)" title="Eliminar pregunta" style="display:none;">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
+                                <div class="mb-2">
+                                    <label class="form-label fw-semibold">Pregunta <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="preguntas[]" 
+                                           value="¿Qué aprendiste en esta lección?" required>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fw-semibold">Opciones</label>
+                                    <div class="opcion-row">
+                                        <span class="opcion-index">1.</span>
+                                        <input type="text" class="form-control" name="opciones1[]" value="Opción 1" required>
+                                    </div>
+                                    <div class="opcion-row">
+                                        <span class="opcion-index">2.</span>
+                                        <input type="text" class="form-control" name="opciones2[]" value="Opción 2" required>
+                                    </div>
+                                    <div class="opcion-row">
+                                        <span class="opcion-index">3.</span>
+                                        <input type="text" class="form-control" name="opciones3[]" value="Opción 3" required>
+                                    </div>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Respuesta correcta <span class="text-danger">*</span></label>
+                                        <select class="form-select" name="respuestas_correctas[]" required>
+                                            <option value="0" selected>Opción 1</option>
+                                            <option value="1">Opción 2</option>
+                                            <option value="2">Opción 3</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Explicación</label>
+                                        <input type="text" class="form-control" name="explicaciones[]" 
+                                               value="Explicación de la respuesta correcta.">
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <button type="button" class="btn-add-pregunta mt-3" onclick="agregarPregunta()">
+                        <i class="fas fa-plus-circle fs-3 d-block mb-2"></i>
+                        Agregar nueva pregunta
+                    </button>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i> Guardar lección
+                        </button>
+                        <a href="{{ url_for('admin_lecciones') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i> Volver
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+let preguntaCounter = document.querySelectorAll('.pregunta-card').length || 0;
+
+function agregarPregunta() {
+    const container = document.getElementById('preguntasContainer');
+    const index = preguntaCounter++;
+    
+    const card = document.createElement('div');
+    card.className = 'pregunta-card';
+    card.dataset.index = index;
+    card.innerHTML = `
+        <button type="button" class="btn-remove-pregunta" onclick="eliminarPregunta(this)" title="Eliminar pregunta">
+            <i class="fas fa-times-circle"></i>
+        </button>
+        <div class="mb-2">
+            <label class="form-label fw-semibold">Pregunta <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="preguntas[]" placeholder="Escribe la pregunta..." required>
+        </div>
+        <div class="mb-2">
+            <label class="form-label fw-semibold">Opciones</label>
+            <div class="opcion-row">
+                <span class="opcion-index">1.</span>
+                <input type="text" class="form-control" name="opciones1[]" placeholder="Opción 1" required>
+            </div>
+            <div class="opcion-row">
+                <span class="opcion-index">2.</span>
+                <input type="text" class="form-control" name="opciones2[]" placeholder="Opción 2" required>
+            </div>
+            <div class="opcion-row">
+                <span class="opcion-index">3.</span>
+                <input type="text" class="form-control" name="opciones3[]" placeholder="Opción 3" required>
+            </div>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Respuesta correcta <span class="text-danger">*</span></label>
+                <select class="form-select" name="respuestas_correctas[]" required>
+                    <option value="0">Opción 1</option>
+                    <option value="1" selected>Opción 2</option>
+                    <option value="2">Opción 3</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Explicación</label>
+                <input type="text" class="form-control" name="explicaciones[]" placeholder="Explicación de la respuesta">
+            </div>
+        </div>
+    `;
+    container.appendChild(card);
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function eliminarPregunta(btn) {
+    const card = btn.closest('.pregunta-card');
+    const cards = document.querySelectorAll('.pregunta-card');
+    if (cards.length <= 1) {
+        alert('Debe haber al menos una pregunta.');
+        return;
+    }
+    if (confirm('¿Eliminar esta pregunta?')) {
+        card.remove();
+        // Renumerar índices (opcional)
+        document.querySelectorAll('.pregunta-card').forEach((el, i) => {
+            el.dataset.index = i;
+        });
+    }
+}
+</script>
+{% endblock %}
+
+{% endblock %}

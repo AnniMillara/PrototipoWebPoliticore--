@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Estado de Chile - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .autoridad-card-wrapper {
+        display: flex;
+    }
+    .card-autoridad {
+        background: white;
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+        transition: var(--transition);
+        text-align: center;
+        padding: 24px 20px 20px;
+        border: 1px solid rgba(0, 0, 0, 0.04);
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 320px;
+    }
+    .card-autoridad:hover {
+        transform: translateY(-6px);
+        box-shadow: var(--shadow-lg);
+    }
+    .card-autoridad .avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin: 0 auto 12px;
+        border: 3px solid var(--primary-light);
+        flex-shrink: 0;
+    }
+    .card-autoridad .avatar-placeholder {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: var(--bg-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 12px;
+        flex-shrink: 0;
+    }
+    .card-autoridad .avatar-placeholder i {
+        font-size: 2.5rem;
+        color: var(--text-gray);
+    }
+    .card-autoridad .nombre {
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-bottom: 2px;
+        flex-shrink: 0;
+    }
+    .card-autoridad .cargo {
+        color: var(--text-gray);
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+        flex-shrink: 0;
+    }
+    .card-autoridad .partido-badge {
+        display: inline-block;
+        padding: 2px 12px;
+        border-radius: 50px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: var(--primary-light);
+        color: var(--primary-blue);
+        margin-bottom: 10px;
+        flex-shrink: 0;
+    }
+    .card-autoridad .descripcion {
+        font-size: 0.85rem;
+        color: var(--text-gray);
+        line-height: 1.4;
+        flex-grow: 1;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        margin-bottom: 12px;
+    }
+    .card-autoridad .btn-ver {
+        margin-top: auto;
+        flex-shrink: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <h1 class="fw-bold">
+            <i class="fas fa-landmark text-primary me-2"></i> Estado de Chile
+        </h1>
+        <span class="badge bg-primary p-2">
+            <i class="fas fa-users me-1"></i> {{ autoridades|length }} autoridades
+        </span>
+    </div>
+
+    <!-- Filtro rápido -->
+    <div class="d-flex gap-2 mb-4 flex-wrap">
+        <button class="btn btn-outline-primary btn-sm active" onclick="filtrarPorPoder('todos')">Todos</button>
+        <button class="btn btn-outline-primary btn-sm" onclick="filtrarPorPoder('Ejecutivo')">Ejecutivo</button>
+        <button class="btn btn-outline-primary btn-sm" onclick="filtrarPorPoder('Legislativo')">Legislativo</button>
+        <button class="btn btn-outline-primary btn-sm" onclick="filtrarPorPoder('Judicial')">Judicial</button>
+    </div>
+
+    <div class="row g-4" id="autoridadesContainer">
+        {% for autoridad in autoridades %}
+        <div class="col-lg-3 col-md-4 col-6 autoridad-card" 
+             data-poder="{{ autoridad.poder_del_estado or 'Ejecutivo' }}"
+             style="animation-delay: {{ loop.index * 0.05 }}s;">
+            <div class="autoridad-card-wrapper">
+                <div class="card-autoridad">
+                    {% if autoridad.foto %}
+                    <img src="{{ autoridad.foto }}" alt="{{ autoridad.nombre }}" class="avatar">
+                    {% else %}
+                    <div class="avatar-placeholder">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    {% endif %}
+                    <div class="nombre">{{ autoridad.nombre }} {{ autoridad.apellido or '' }}</div>
+                    <div class="cargo">{{ autoridad.cargo }}</div>
+                    <span class="partido-badge">{{ autoridad.partido or 'Independiente' }}</span>
+                    <a href="{{ url_for('perfil_autoridad', id=autoridad.id) }}" class="btn btn-outline-primary btn-sm btn-ver">
+                        <i class="fas fa-eye me-1"></i> Ver perfil
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function filtrarPorPoder(poder) {
+    document.querySelectorAll('.btn-outline-primary').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`button[onclick*="${poder}"]`).classList.add('active');
+    
+    document.querySelectorAll('.autoridad-card').forEach(card => {
+        if (poder === 'todos' || card.dataset.poder === poder) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

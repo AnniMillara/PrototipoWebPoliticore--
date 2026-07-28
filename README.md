@@ -1,2 +1,0 @@
-# PrototipoWebPoliticore:)
-D(F)uck

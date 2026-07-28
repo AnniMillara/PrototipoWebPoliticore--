@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Error del servidor - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-5 text-center">
+    <i class="fas fa-exclamation-triangle text-danger" style="font-size: 4rem;"></i>
+    <h1 class="fw-bold mt-4">500 - Error interno</h1>
+    <p class="text-muted">Algo salió mal en el servidor. Por favor intenta más tarde.</p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary">
+        <i class="fas fa-home me-2"></i> Volver al inicio
+    </a>
+</div>
+{% endblock %}

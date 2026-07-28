@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block title %}Panel de Administración - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-sidebar {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        position: sticky;
+        top: 80px;
+    }
+    .admin-sidebar .nav-link {
+        color: var(--text-gray);
+        padding: 10px 16px;
+        border-radius: 10px;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.95rem;
+    }
+    .admin-sidebar .nav-link:hover {
+        background: var(--bg-light);
+        color: var(--text-dark);
+    }
+    .admin-sidebar .nav-link.active {
+        background: var(--primary-light);
+        color: var(--primary-blue);
+        font-weight: 600;
+    }
+    .admin-sidebar .nav-link i {
+        width: 20px;
+        text-align: center;
+    }
+    .admin-sidebar .sidebar-title {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #9CA3AF;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding: 0 16px;
+    }
+    .stat-card {
+        background: white;
+        border-radius: var(--radius);
+        padding: 24px;
+        box-shadow: var(--shadow-sm);
+        transition: var(--transition);
+        text-align: center;
+        height: 100%;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    .stat-card .stat-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 12px;
+        font-size: 1.6rem;
+    }
+    .stat-card .stat-number {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text-dark);
+    }
+    .stat-card .stat-label {
+        color: var(--text-gray);
+        font-size: 0.9rem;
+    }
+    .quick-card {
+        background: white;
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        transition: var(--transition);
+        height: 100%;
+        border: 1px solid rgba(0,0,0,0.04);
+    }
+    .quick-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+    }
+    .quick-card .quick-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        margin-bottom: 12px;
+    }
+    .quick-card h6 {
+        font-weight: 700;
+        font-size: 1rem;
+        margin-bottom: 4px;
+    }
+    .quick-card p {
+        color: var(--text-gray);
+        font-size: 0.85rem;
+        margin-bottom: 12px;
+    }
+    .badge-module {
+        font-size: 0.65rem;
+        padding: 2px 10px;
+        border-radius: 50px;
+        background: #F3F4F6;
+        color: #6B7280;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row g-4">
+        <!-- ============================================ -->
+        <!-- SIDEBAR -->
+        <!-- ============================================ -->
+        <div class="col-lg-2">
+            <div class="admin-sidebar">
+                <div class="sidebar-title">📊 Navegación</div>
+                <nav class="nav flex-column">
+                    <a class="nav-link active" href="{{ url_for('admin_dashboard') }}">
+                        <i class="fas fa-chart-pie"></i> Dashboard
+                    </a>
+                    <a class="nav-link" href="{{ url_for('admin_lecciones') }}">
+                        <i class="fas fa-book"></i> Lecciones
+                    </a>
+                    <a class="nav-link" href="{{ url_for('admin_simulaciones') }}">
+                        <i class="fas fa-gamepad"></i> Simulaciones
+                    </a>
+                    <a class="nav-link" href="{{ url_for('admin_cartas_evento') }}">
+                        <i class="fas fa-cards"></i> Cartas de Evento
+                    </a>
+                    <a class="nav-link" href="{{ url_for('admin_rutas_alternativas') }}">
+                        <i class="fas fa-route"></i> Rutas Alternativas
+                    </a>
+                </nav>
+                <hr class="my-3">
+                <div class="sidebar-title">📁 Contenido</div>
+                <nav class="nav flex-column">
+                    <a class="nav-link" href="{{ url_for('estado') }}">
+                        <i class="fas fa-landmark"></i> Estado de Chile
+                    </a>
+                    <a class="nav-link" href="{{ url_for('admin_noticias') }}">
+                        <i class="fas fa-newspaper"></i> Noticias
+                    </a>
+                    <a class="nav-link" href="{{ url_for('admin_autoridades') }}">
+                        <i class="fas fa-users"></i> Autoridades
+                    </a>
+                    <a class="nav-link" href="{{ url_for('admin_tareas') }}">
+                        <i class="fas fa-tasks"></i> Tareas
+                    </a>
+                    {% if current_user.is_super_admin %}
+                    <a class="nav-link" href="{{ url_for('admin_usuarios') }}">
+                        <i class="fas fa-user-shield"></i> Usuarios
+                    </a>
+                    {% endif %}
+                </nav>
+                <hr class="my-3">
+                <div class="sidebar-title">🌐 Público</div>
+                <nav class="nav flex-column">
+                    <a class="nav-link" href="{{ url_for('lecciones') }}">
+                        <i class="fas fa-graduation-cap"></i> Ver Lecciones
+                    </a>
+                    <a class="nav-link" href="{{ url_for('simulacion') }}">
+                        <i class="fas fa-gamepad"></i> Ver Simulaciones
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- CONTENIDO PRINCIPAL -->
+        <!-- ============================================ -->
+        <div class="col-lg-10">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="fw-bold mb-1">
+                        <i class="fas fa-chart-pie text-primary me-2"></i> Dashboard
+                    </h2>
+                    <p class="text-muted small mb-0">Bienvenido, {{ current_user.nombre }} 👋</p>
+                </div>
+                <span class="badge bg-primary p-2">
+                    <i class="fas fa-crown me-1"></i> 
+                    {% if current_user.is_super_admin %}Super Admin{% elif current_user.is_admin %}Admin{% else %}Gestor{% endif %}
+                </span>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- ESTADÍSTICAS -->
+            <!-- ============================================ -->
+            <div class="row g-3 mb-4">
+                {% for stat in estadisticas %}
+                <div class="col-md-3 col-6">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: {{ stat.color }}20; color: {{ stat.color }};">
+                            <i class="fas fa-{{ stat.icono }}"></i>
+                        </div>
+                        <div class="stat-number">{{ stat.valor }}</div>
+                        <div class="stat-label">{{ stat.nombre }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- ============================================ -->
+            <!-- ACCIONES RÁPIDAS -->
+            <!-- ============================================ -->
+            <h5 class="fw-bold mb-3">
+                <i class="fas fa-bolt text-primary me-2"></i> Acciones Rápidas
+            </h5>
+            <div class="row g-3 mb-4">
+                <!-- Lecciones -->
+                <div class="col-md-3 col-6">
+                    <div class="quick-card">
+                        <div class="quick-icon" style="background: #DBEAFE; color: #2563EB;">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <h6>Lecciones</h6>
+                        <p>Crea y gestiona lecciones</p>
+                        <div class="d-flex gap-1">
+                            <a href="{{ url_for('admin_lecciones') }}" class="btn btn-outline-primary btn-sm">Ver</a>
+                            <a href="{{ url_for('admin_leccion_nueva') }}" class="btn btn-primary btn-sm">+</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulaciones -->
+                <div class="col-md-3 col-6">
+                    <div class="quick-card">
+                        <div class="quick-icon" style="background: #D1FAE5; color: #065F46;">
+                            <i class="fas fa-gamepad"></i>
+                        </div>
+                        <h6>Simulaciones</h6>
+                        <p>Gestiona campañas</p>
+                        <div class="d-flex gap-1">
+                            <a href="{{ url_for('admin_simulaciones') }}" class="btn btn-outline-primary btn-sm">Ver</a>
+                            <a href="{{ url_for('admin_simulacion_nueva') }}" class="btn btn-primary btn-sm">+</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cartas de Evento -->
+                <div class="col-md-3 col-6">
+                    <div class="quick-card">
+                        <div class="quick-icon" style="background: #FEF3C7; color: #D97706;">
+                            <i class="fas fa-cards"></i>
+                        </div>
+                        <h6>Cartas de Evento</h6>
+                        <p>Eventos aleatorios</p>
+                        <div class="d-flex gap-1">
+                            <a href="{{ url_for('admin_cartas_evento') }}" class="btn btn-outline-primary btn-sm">Ver</a>
+                            <a href="{{ url_for('admin_carta_evento_nueva') }}" class="btn btn-primary btn-sm">+</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rutas Alternativas -->
+                <div class="col-md-3 col-6">
+                    <div class="quick-card">
+                        <div class="quick-icon" style="background: #EDE9FE; color: #7C3AED;">
+                            <i class="fas fa-route"></i>
+                        </div>
+                        <h6>Rutas Alternativas</h6>
+                        <p>Cambia la historia</p>
+                        <div class="d-flex gap-1">
+                            <a href="{{ url_for('admin_rutas_alternativas') }}" class="btn btn-outline-primary btn-sm">Ver</a>
+                            <a href="{{ url_for('admin_ruta_alternativa_nueva') }}" class="btn btn-primary btn-sm">+</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- CONTENIDO ADICIONAL -->
+            <!-- ============================================ -->
+            <div class="row g-3">
+                <!-- Noticias -->
+                <div class="col-md-6">
+                    <div class="quick-card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold mb-0">
+                                <i class="fas fa-newspaper text-primary me-2"></i> Noticias
+                            </h6>
+                            <a href="{{ url_for('admin_noticias') }}" class="btn btn-sm btn-outline-primary">Gestionar</a>
+                        </div>
+                        <p class="text-muted small">Mantén actualizada la sección de noticias</p>
+                        <a href="{{ url_for('admin_noticia_nueva') }}" class="btn btn-primary btn-sm w-100">
+                            <i class="fas fa-plus me-1"></i> Nueva noticia
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Autoridades -->
+                <div class="col-md-6">
+                    <div class="quick-card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold mb-0">
+                                <i class="fas fa-landmark text-primary me-2"></i> Autoridades
+                            </h6>
+                            <a href="{{ url_for('admin_autoridades') }}" class="btn btn-sm btn-outline-primary">Gestionar</a>
+                        </div>
+                        <p class="text-muted small">Administra las autoridades del Estado</p>
+                        <a href="{{ url_for('admin_autoridad_nueva') }}" class="btn btn-primary btn-sm w-100">
+                            <i class="fas fa-plus me-1"></i> Nueva autoridad
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Tareas -->
+                <div class="col-md-6">
+                    <div class="quick-card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold mb-0">
+                                <i class="fas fa-tasks text-primary me-2"></i> Tareas
+                            </h6>
+                            <a href="{{ url_for('admin_tareas') }}" class="btn btn-sm btn-outline-primary">Gestionar</a>
+                        </div>
+                        <p class="text-muted small">Material para profesores</p>
+                        <a href="{{ url_for('admin_tarea_nueva') }}" class="btn btn-primary btn-sm w-100">
+                            <i class="fas fa-plus me-1"></i> Nueva tarea
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Usuarios (Solo Super Admin) -->
+                {% if current_user.is_super_admin %}
+                <div class="col-md-6">
+                    <div class="quick-card" style="border: 2px solid #FEF3C7;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold mb-0">
+                                <i class="fas fa-user-shield text-warning me-2"></i> Usuarios ⭐
+                            </h6>
+                            <a href="{{ url_for('admin_usuarios') }}" class="btn btn-sm btn-outline-warning">Gestionar</a>
+                        </div>
+                        <p class="text-muted small">Administra todos los usuarios del sistema</p>
+                        <span class="badge bg-warning text-dark">Solo Super Admin</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

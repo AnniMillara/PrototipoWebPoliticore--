@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Lecciones - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mundo-card {
+        background: white;
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-sm);
+        border-left: 6px solid var(--primary-blue);
+        transition: var(--transition);
+    }
+    .mundo-card:hover {
+        box-shadow: var(--shadow-md);
+    }
+    .mundo-card .mundo-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .mundo-card .mundo-header i {
+        font-size: 2.5rem;
+        color: var(--primary-blue);
+        width: 50px;
+        text-align: center;
+    }
+    .mundo-card .mundo-header h3 {
+        font-weight: 700;
+        margin: 0;
+    }
+    .leccion-card {
+        background: white;
+        border-radius: 14px;
+        padding: 1.2rem;
+        box-shadow: var(--shadow-sm);
+        border: 2px solid #E5E7EB;
+        transition: var(--transition);
+        position: relative;
+        cursor: pointer;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .leccion-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--primary-blue);
+    }
+    .leccion-card.bloqueada {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .leccion-card.bloqueada:hover {
+        transform: none;
+        border-color: #E5E7EB;
+    }
+    .leccion-card.completada {
+        border-color: #10B981;
+        background: #F0FDF4;
+    }
+    .leccion-card .badge-estado {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 0.7rem;
+        padding: 3px 12px;
+        border-radius: 50px;
+        font-weight: 600;
+    }
+    .badge-estado.disponible {
+        background: #DBEAFE;
+        color: #2563EB;
+    }
+    .badge-estado.completada {
+        background: #D1FAE5;
+        color: #065F46;
+    }
+    .badge-estado.bloqueada {
+        background: #F3F4F6;
+        color: #9CA3AF;
+    }
+    .leccion-card .leccion-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        color: var(--primary-blue);
+    }
+    .leccion-card .leccion-titulo {
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        flex-grow: 1;
+    }
+    .leccion-card .leccion-xp {
+        font-size: 0.8rem;
+        color: var(--text-gray);
+    }
+    .leccion-card .leccion-xp i {
+        color: #F59E0B;
+    }
+    .leccion-card .progress-custom {
+        height: 4px;
+        background: #E5E7EB;
+        border-radius: 4px;
+        margin-top: 0.5rem;
+        overflow: hidden;
+    }
+    .leccion-card .progress-custom .fill {
+        height: 100%;
+        border-radius: 4px;
+        background: linear-gradient(90deg, #2563EB, #7C3AED);
+        transition: width 0.6s ease;
+    }
+    .leccion-card a {
+        text-decoration: none;
+        color: inherit;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <h1 class="fw-bold">
+            <i class="fas fa-map text-primary me-2"></i> Mapa de Aprendizaje
+        </h1>
+        <span class="badge bg-primary p-2">
+            <i class="fas fa-flag me-1"></i> {{ mundos|length }} mundos
+        </span>
+    </div>
+
+    {% for mundo in mundos %}
+    <div class="mundo-card">
+        <div class="mundo-header">
+            <i class="fas fa-{{ mundo.icono }}"></i>
+            <div>
+                <h3>{{ mundo.nombre }}</h3>
+                <p class="text-muted small mb-0">{{ mundo.descripcion or 'Explora este mundo de aprendizaje' }}</p>
+            </div>
+        </div>
+        <div class="row g-3">
+            {% for leccion in mundo.lecciones %}
+            <div class="col-md-4 col-lg-3">
+                <div class="leccion-card {% if leccion.estado == 'bloqueada' %}bloqueada{% elif leccion.estado == 'completada' %}completada{% endif %}">
+                    {% if leccion.estado != 'bloqueada' %}
+                    <a href="{{ url_for('detalle_leccion', id=leccion.id) }}">
+                    {% endif %}
+                        <span class="badge-estado {{ leccion.estado }}">
+                            <i class="fas fa-{% if leccion.estado == 'disponible' %}play{% elif leccion.estado == 'completada' %}check{% else %}lock{% endif %} me-1"></i>
+                            {{ leccion.estado|capitalize }}
+                        </span>
+                        <div class="leccion-icon">
+                            <i class="fas fa-{{ leccion.icono or 'book' }}"></i>
+                        </div>
+                        <div class="leccion-titulo">{{ leccion.titulo }}</div>
+                        <div class="leccion-xp">
+                            <i class="fas fa-star"></i> {{ leccion.xp or 50 }} XP
+                        </div>
+                        <div class="progress-custom">
+                            <div class="fill" style="width: {{ leccion.progreso or 0 }}%;"></div>
+                        </div>
+                    {% if leccion.estado != 'bloqueada' %}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="col-12">
+                <p class="text-muted text-center">No hay lecciones en este mundo aún.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-map text-muted" style="font-size: 4rem;"></i>
+        <h4 class="mt-3">No hay mundos disponibles</h4>
+        <p class="text-muted">Pronto agregaremos más contenido.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

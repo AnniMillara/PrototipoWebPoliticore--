@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Noticias - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold">
+            <i class="fas fa-newspaper text-primary me-2"></i> Gestionar Noticias
+        </h1>
+        <a href="{{ url_for('admin_noticia_nueva') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Nueva Noticia
+        </a>
+    </div>
+
+    <div class="card-modern">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Título</th>
+                        <th>Fecha</th>
+                        <th>Destacada</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for noticia in noticias %}
+                    <tr>
+                        <td>{{ noticia.id }}</td>
+                        <td>{{ noticia.titulo }}</td>
+                        <td>{{ noticia.fecha }}</td>
+                        <td>
+                            {% if noticia.destacada %}
+                            <span class="badge bg-warning text-dark">⭐ Destacada</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Normal</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if noticia.activa %}
+                            <span class="badge bg-success">Activa</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inactiva</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('admin_noticia_editar', id=noticia.id) }}"
+                                class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button class="btn btn-sm btn-outline-danger" onclick="eliminarNoticia({{ noticia.id }})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No hay noticias creadas</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    function eliminarNoticia(id) {
+        if (confirm('¿Estás seguro de eliminar esta noticia?')) {
+            fetch('/admin/noticia/eliminar/' + id, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error al eliminar');
+                    }
+                });
+        }
+    }
+</script>
+{% endblock %}

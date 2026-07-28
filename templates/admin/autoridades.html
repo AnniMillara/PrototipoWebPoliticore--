@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Autoridades - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold">
+            <i class="fas fa-landmark text-primary me-2"></i> Gestionar Autoridades
+        </h1>
+        <a href="{{ url_for('admin_autoridad_nueva') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Nueva Autoridad
+        </a>
+    </div>
+
+    <div class="card-modern">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Cargo</th>
+                        <th>Partido</th>
+                        <th>Poder</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for autoridad in autoridades %}
+                    <tr>
+                        <td>{{ autoridad.id }}</td>
+                        <td>{{ autoridad.nombre }} {{ autoridad.apellido_paterno or '' }}</td>
+                        <td>{{ autoridad.cargo }}</td>
+                        <td>{{ autoridad.partido or 'Independiente' }}</td>
+                        <td>{{ autoridad.tipo_autoridad or 'N/A' }}</td>
+                        <td>
+                            {% if autoridad.activo %}
+                            <span class="badge bg-success">Activo</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('admin_autoridad_editar', id=autoridad.id) }}"
+                                class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button class="btn btn-sm btn-outline-danger"
+                                onclick="eliminarAutoridad({{ autoridad.id }})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No hay autoridades creadas</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    function eliminarAutoridad(id) {
+        if (confirm('¿Estás seguro de eliminar esta autoridad?')) {
+            fetch('/admin/autoridad/eliminar/' + id, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error al eliminar');
+                    }
+                });
+        }
+    }
+</script>
+{% endblock %}

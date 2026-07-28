@@ -1,0 +1,126 @@
+{
+  "autoridades": [
+    {
+      "id": 1,
+      "nombre": "José Antonio",
+      "apellido": "Kast",
+      "cargo": "Presidente de la República",
+      "poder_del_estado": "Ejecutivo",
+      "institucion": "Gobierno de Chile",
+      "partido": "Republicano",
+      "fecha_inicio": "2026-03-11",
+      "programa_gobierno": "Atrévete",
+      "pilares": ["Estado de Derecho", "Libertad", "Familia"],
+      "biografia": "José Antonio Kast Rist nació en Santiago en 1966. Es abogado de la Pontificia Universidad Católica. Fue concejal de Buin (1996-2000) y diputado entre 2002 y 2018. Se presentó como candidato presidencial en 2017, 2021 y 2025. Fundó el Partido Republicano en 2019. Ganó la segunda vuelta de diciembre de 2025 y asumió la Presidencia el 11 de marzo de 2026 con el programa 'Atrévete'.",
+      "como_funciona_su_cargo": "El Presidente es la persona más importante del país. Dirige el gobierno, hace cumplir las leyes y representa a Chile en el extranjero.",
+      "que_hace_en_un_dia_normal": "Se reúne con ministros, firma decretos, supervisa la seguridad y el control migratorio.",
+      "porque_es_importante": "Sus decisiones afectan la vida de todos los chilenos en áreas como seguridad, inmigración, economía, pensiones, educación y salud.",
+      "ejemplo_cotidiano": "Es como el director de un colegio gigante que decide cómo se gasta el dinero y qué reglas se aplican.",
+      "atribuciones": [
+        "Dirigir el Gobierno y la administración del Estado",
+        "Ejercer el mando de las Fuerzas Armadas",
+        "Conducir las relaciones internacionales",
+        "Promulgar las leyes aprobadas por el Congreso",
+        "Nombrar a los ministros de Estado"
+      ],
+      "proyectos": [
+        {
+          "categoria": "Seguridad",
+          "nombre": "Control Fronterizo",
+          "estado": "En ejecución",
+          "descripcion": "Refuerzo militar y tecnológico en la frontera norte.",
+          "objetivo": "Controlar la inmigración ilegal",
+          "como_me_afecta": "Mayor presencia militar en la frontera norte.",
+          "ejemplo_real": "Zanjas y drones en la frontera.",
+          "impacto": "Aumenta el control migratorio y la presencia militar en la zona norte"
+        },
+        {
+          "categoria": "Economía",
+          "nombre": "Reducción de Impuestos a Empresas",
+          "estado": "En discusión",
+          "descripcion": "Disminución progresiva del impuesto a las empresas.",
+          "objetivo": "Incentivar la inversión y el empleo",
+          "como_me_afecta": "Las empresas pagan menos impuestos.",
+          "ejemplo_real": "Una empresa reduce su carga tributaria.",
+          "impacto": "Disminuye la recaudación fiscal, lo que puede afectar el gasto público"
+        },
+        {
+          "categoria": "Pensiones",
+          "nombre": "Jubilar con Dignidad",
+          "estado": "En discusión",
+          "descripcion": "Defensa de la propiedad individual de los fondos de pensiones.",
+          "objetivo": "Mantener el sistema de capitalización individual",
+          "como_me_afecta": "Tus fondos de pensión siguen siendo de tu propiedad.",
+          "ejemplo_real": "Puedes heredar tu cuenta de pensión.",
+          "impacto": "Mantiene el sistema de AFP sin cambios estructurales"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "nombre": "Paulina",
+      "apellido": "Núñez",
+      "cargo": "Presidenta del Senado",
+      "poder_del_estado": "Legislativo",
+      "institucion": "Congreso Nacional",
+      "partido": "Renovación Nacional",
+      "fecha_inicio": "2026-03-11",
+      "biografia": "Paulina Núñez es abogada y política chilena. Fue diputada y senadora por la Región de Antofagasta. Asumió como Presidenta del Senado en 2026.",
+      "como_funciona_su_cargo": "Dirige las sesiones del Senado y coordina el trabajo legislativo.",
+      "que_hace_en_un_dia_normal": "Preside sesiones, se reúne con senadores y coordina el trabajo legislativo.",
+      "porque_es_importante": "El Senado revisa y aprueba las leyes. Su trabajo es clave para que las leyes avancen.",
+      "ejemplo_cotidiano": "Es como la presidenta del centro de alumnos, pero a nivel nacional.",
+      "atribuciones": [
+        "Presidir las sesiones del Senado",
+        "Representar al Senado",
+        "Dirigir el debate y votación de leyes",
+        "Coordinar el trabajo legislativo"
+      ],
+      "proyectos": []
+    },
+    {
+      "id": 3,
+      "nombre": "Jorge",
+      "apellido": "Alessandri",
+      "cargo": "Presidente de la Cámara de Diputadas y Diputados",
+      "poder_del_estado": "Legislativo",
+      "institucion": "Congreso Nacional",
+      "partido": "Unión Demócrata Independiente",
+      "fecha_inicio": "2026-03-11",
+      "biografia": "Jorge Alessandri es abogado y político chileno. Fue diputado por el distrito 11. Asumió como presidente de la Cámara en 2026.",
+      "como_funciona_su_cargo": "Dirige las sesiones de la Cámara de Diputados y coordina el trabajo legislativo.",
+      "que_hace_en_un_dia_normal": "Preside sesiones, se reúne con diputados y coordina comisiones.",
+      "porque_es_importante": "La Cámara de Diputados es donde se inician muchas leyes.",
+      "ejemplo_cotidiano": "Es como el presidente del consejo de curso.",
+      "atribuciones": [
+        "Presidir las sesiones de la Cámara",
+        "Coordinar el trabajo legislativo",
+        "Fiscalizar los actos del Ejecutivo",
+        "Representar a la Cámara"
+      ],
+      "proyectos": []
+    },
+    {
+      "id": 4,
+      "nombre": "Gloria Ana",
+      "apellido": "Chevesich",
+      "cargo": "Presidenta de la Corte Suprema",
+      "poder_del_estado": "Judicial",
+      "institucion": "Poder Judicial",
+      "partido": "Independiente",
+      "fecha_inicio": "2026-01-01",
+      "biografia": "Gloria Ana Chevesich es abogada y jueza chilena. Fue elegida Presidenta de la Corte Suprema en 2026.",
+      "como_funciona_su_cargo": "Encabeza el máximo tribunal del país y administra el sistema de justicia.",
+      "que_hace_en_un_dia_normal": "Revisa casos importantes, se reúne con jueces y firma resoluciones.",
+      "porque_es_importante": "Asegura que se cumpla la ley en el país.",
+      "ejemplo_cotidiano": "Es como la directora de un colegio que resuelve los problemas más graves.",
+      "atribuciones": [
+        "Encabezar el máximo tribunal",
+        "Representar al Poder Judicial",
+        "Administrar el sistema de justicia",
+        "Interpretar las leyes"
+      ],
+      "proyectos": []
+    }
+  ]
+}
