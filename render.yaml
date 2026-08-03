@@ -3,7 +3,4 @@ services:
     name: PrototipoPoliticore
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: /opt/render/project/src/.venv/bin/gunicorn app:app
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.10.0
+    startCommand: /opt/render/project/src/.venv/bin/python -m waitress --host 0.0.0.0 --port $PORT app:app
