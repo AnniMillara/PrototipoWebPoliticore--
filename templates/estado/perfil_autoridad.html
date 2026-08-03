@@ -102,52 +102,20 @@
         margin-top: 4px;
         flex-shrink: 0;
     }
-    .proyecto-item {
-        background: var(--bg-light);
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 0.75rem;
+    .proyecto-card {
+        border-left-width: 4px !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
-    .proyecto-item:last-child {
-        margin-bottom: 0;
+    .proyecto-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.08);
     }
-    .proyecto-item .proyecto-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 4px;
-    }
-    .proyecto-item .proyecto-header h6 {
-        font-weight: 600;
-        margin-bottom: 0;
-        font-size: 0.95rem;
-    }
-    .proyecto-item .estado-badge {
-        font-size: 0.65rem;
-        padding: 2px 10px;
-        border-radius: 50px;
-        font-weight: 600;
-        flex-shrink: 0;
-    }
-    .proyecto-item .estado-badge.implementado { background: #D1FAE5; color: #065F46; }
-    .proyecto-item .estado-badge.proceso { background: #FEF3C7; color: #D97706; }
-    .proyecto-item .estado-badge.discusion { background: #DBEAFE; color: #1E40AF; }
-    .proyecto-item .estado-badge.desarrollo { background: #E5E7EB; color: #4B5563; }
-    .proyecto-item p {
-        font-size: 0.9rem;
-        color: var(--text-gray);
-        margin-bottom: 4px;
-    }
-    .proyecto-item .impacto {
-        font-size: 0.85rem;
-        color: var(--text-gray);
-        background: white;
-        padding: 6px 10px;
+    .impacto-box {
+        border-left: 3px solid #2563EB;
+        padding: 0.5rem 0.75rem;
+        background: #F8FAFC;
         border-radius: 6px;
-        margin-top: 4px;
-        border-left: 3px solid var(--primary-blue);
+        margin-top: 0.25rem;
     }
     .vacio {
         color: var(--text-light);
@@ -239,26 +207,87 @@
         </div>
         {% endif %}
 
-        <!-- PROYECTOS -->
+        <!-- ============================================ -->
+        <!-- PROYECTOS MEJORADOS (TARJETAS INDEPENDIENTES) -->
+        <!-- ============================================ -->
         {% if autoridad.proyectos and autoridad.proyectos|length > 0 %}
         <div class="section-card" style="border-left-color: #8B5CF6;">
             <div class="section-title"><i class="fas fa-file-lines"></i> Proyectos</div>
-            {% for proyecto in autoridad.proyectos %}
-            <div class="proyecto-item">
-                <div class="proyecto-header">
-                    <h6>{{ proyecto.nombre }}</h6>
-                    <span class="estado-badge {{ proyecto.estado|lower|replace(' ', '') }}">
-                        {{ proyecto.estado }}
-                    </span>
+            <div class="row g-3">
+                {% for proyecto in autoridad.proyectos %}
+                <div class="col-12">
+                    <div class="proyecto-card p-3 bg-white rounded shadow-sm border-start border-4 border-primary">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap">
+                            <h6 class="fw-bold mb-1">{{ proyecto.nombre }}</h6>
+                            {% set estado_color = {
+                                'En ejecución': 'success',
+                                'En discusión': 'warning',
+                                'Finalizado': 'primary',
+                                'Archivado': 'secondary'
+                            } %}
+                            <span class="badge bg-{{ estado_color.get(proyecto.estado, 'secondary') }} text-dark">
+                                {{ proyecto.estado }}
+                            </span>
+                        </div>
+                        <p class="text-muted small mb-2">{{ proyecto.descripcion }}</p>
+                        {% if proyecto.impacto %}
+                        <div class="impacto-box p-2 bg-light rounded small">
+                            <i class="fas fa-bullseye text-primary me-1"></i>
+                            <strong>Impacto:</strong> {{ proyecto.impacto }}
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                <p>{{ proyecto.descripcion }}</p>
-                {% if proyecto.impacto %}
-                <div class="impacto"><strong>Impacto:</strong> {{ proyecto.impacto }}</div>
-                {% endif %}
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
         {% endif %}
+
+        <!-- ============================================ -->
+        <!-- PROPUESTAS DE LA AUTORIDAD                   -->
+        <!-- ============================================ -->
+        <div class="section-card" style="border-left-color: #8B5CF6;">
+            <div class="section-title"><i class="fas fa-file-signature"></i> Propuestas</div>
+
+            {% if propuestas %}
+                <ul class="list-unstyled">
+                    {% for prop in propuestas %}
+                    <li class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                {% set estado_clase = {
+                                    'Borrador': 'bg-secondary',
+                                    'Publicada': 'bg-success',
+                                    'Archivada': 'bg-danger',
+                                    'En proceso': 'bg-info',
+                                    'En tramitación': 'bg-warning text-dark',
+                                    'En preparación': 'bg-warning text-dark'
+                                } %}
+                                <span class="badge {{ estado_clase[prop.estado] or 'bg-secondary' }} me-2">
+                                    {{ prop.estado }}
+                                </span>
+                                <a href="{{ url_for('detalle_propuesta', id=prop.id) }}" class="fw-semibold text-decoration-none">
+                                    {{ prop.titulo }}
+                                </a>
+                            </div>
+                            <small class="text-muted">
+                                {% if prop.fecha_publicacion %}
+                                    <i class="fas fa-calendar-alt me-1"></i> {{ prop.fecha_publicacion.strftime('%d/%m/%Y') }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        {% if prop.descripcion %}
+                        <div class="text-muted small ms-4 ps-2 mt-1" style="border-left: 2px solid #E5E7EB; padding-left: 0.75rem;">
+                            {{ prop.descripcion[:150] }}{% if prop.descripcion|length > 150 %}...{% endif %}
+                        </div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted">Esta autoridad aún no tiene propuestas registradas.</p>
+            {% endif %}
+        </div>
 
         <!-- VOLVER -->
         <div class="mt-3">

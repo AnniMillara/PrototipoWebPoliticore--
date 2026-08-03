@@ -3756,18 +3756,212 @@ def admin_autoridad_eliminar_foto(id):
 
 # ========== RUTA DE PROPUESTAS ==========
 
-@app.route('/propuesta/<int:id>')
-def detalle_propuesta(id):
+# ============================================
+# RUTAS ADMIN - PROPUESTAS
+# ============================================
+
+@app.route('/admin/propuestas')
+@login_required
+@admin_required
+def admin_propuestas():
+    """Listado de propuestas para administración"""
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        cur.execute("""
+            SELECT p.*, a.nombre AS autoridad_nombre, a.apellido_paterno AS autoridad_apellido
+            FROM propuestas p
+            JOIN autoridades a ON p.autoridad_id = a.id
+            ORDER BY p.created_at DESC
+        """)
+        propuestas = cur.fetchall()
+        cur.close()
+        conn.close()
+        return render_template('admin/propuestas.html', propuestas=propuestas)
+    except Exception as e:
+        flash(f'Error al cargar propuestas: {e}', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/propuesta/nueva', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_propuesta_nueva():
+    """Crear nueva propuesta"""
+    if request.method == 'POST':
+        autoridad_id = request.form.get('autoridad_id')
+        titulo = request.form.get('titulo')
+        descripcion = request.form.get('descripcion')
+        explicacion = request.form.get('explicacion')
+        impacto_personal = request.form.get('impacto_personal')
+        estado = request.form.get('estado', 'Borrador')
+        fecha_publicacion = request.form.get('fecha_publicacion') or None
+        fuente_oficial = request.form.get('fuente_oficial')
+
+        if not autoridad_id or not titulo or not descripcion:
+            flash('Los campos Autoridad, Título y Descripción son obligatorios', 'danger')
+            return redirect(url_for('admin_propuesta_nueva'))
+
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO propuestas 
+                (autoridad_id, titulo, descripcion, explicacion, impacto_personal, estado, fecha_publicacion, fuente_oficial)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (autoridad_id, titulo, descripcion, explicacion, impacto_personal, estado, fecha_publicacion, fuente_oficial))
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash('✅ Propuesta creada exitosamente', 'success')
+            return redirect(url_for('admin_propuestas'))
+        except Exception as e:
+            flash(f'Error al guardar: {e}', 'danger')
+
+    # GET: mostrar formulario con lista de autoridades
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, nombre, apellido_paterno, cargo FROM autoridades WHERE activo = 1 ORDER BY nombre")
+        autoridades = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        flash(f'Error al cargar autoridades: {e}', 'danger')
+        autoridades = []
+
+    return render_template('admin/propuesta_form.html', autoridades=autoridades, propuesta=None)
+
+
+@app.route('/admin/propuesta/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_propuesta_editar(id):
+    """Editar propuesta existente"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        if request.method == 'POST':
+            autoridad_id = request.form.get('autoridad_id')
+            titulo = request.form.get('titulo')
+            descripcion = request.form.get('descripcion')
+            explicacion = request.form.get('explicacion')
+            impacto_personal = request.form.get('impacto_personal')
+            estado = request.form.get('estado', 'Borrador')
+            fecha_publicacion = request.form.get('fecha_publicacion') or None
+            fuente_oficial = request.form.get('fuente_oficial')
+
+            cur.execute("""
+                UPDATE propuestas 
+                SET autoridad_id = %s, titulo = %s, descripcion = %s, explicacion = %s, 
+                    impacto_personal = %s, estado = %s, fecha_publicacion = %s, fuente_oficial = %s
+                WHERE id = %s
+            """, (autoridad_id, titulo, descripcion, explicacion, impacto_personal, estado, fecha_publicacion, fuente_oficial, id))
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash('✅ Propuesta actualizada correctamente', 'success')
+            return redirect(url_for('admin_propuestas'))
+
+        # GET: cargar datos
         cur.execute("SELECT * FROM propuestas WHERE id = %s", (id,))
+        propuesta = cur.fetchone()
+        if not propuesta:
+            flash('Propuesta no encontrada', 'danger')
+            return redirect(url_for('admin_propuestas'))
+
+        cur.execute("SELECT id, nombre, apellido_paterno, cargo FROM autoridades WHERE activo = 1 ORDER BY nombre")
+        autoridades = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        return render_template('admin/propuesta_form.html', propuesta=propuesta, autoridades=autoridades)
+
+    except Exception as e:
+        flash(f'Error al editar: {e}', 'danger')
+        return redirect(url_for('admin_propuestas'))
+
+
+@app.route('/admin/propuesta/eliminar/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def admin_propuesta_eliminar(id):
+    """Eliminar propuesta (borrado físico)"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM propuestas WHERE id = %s", (id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================
+# RUTAS PÚBLICAS - PROPUESTAS
+# ============================================
+
+@app.route('/propuesta/<int:id>')
+def detalle_propuesta(id):
+    """Ver detalle público de una propuesta"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT p.*, a.nombre AS autoridad_nombre, a.apellido_paterno AS autoridad_apellido, a.cargo
+            FROM propuestas p
+            JOIN autoridades a ON p.autoridad_id = a.id
+            WHERE p.id = %s AND p.estado != 'Archivada'
+        """, (id,))
         propuesta = cur.fetchone()
         cur.close()
         conn.close()
+        if not propuesta:
+            flash('Propuesta no encontrada', 'danger')
+            return redirect(url_for('estado'))
         return render_template('propuesta_detalle.html', propuesta=propuesta)
-    except:
-        return render_template('propuesta_detalle.html', propuesta={'titulo': 'Propuesta', 'explicacion': 'Explicación'})
+    except Exception as e:
+        flash(f'Error al cargar la propuesta: {e}', 'danger')
+        return redirect(url_for('estado'))
+
+
+# ============================================
+# MODIFICAR RUTA EXISTENTE: perfil_autoridad
+# (Reemplaza la función existente o añade esta parte)
+# ============================================
+
+@app.route('/estado/perfil/<int:id>')
+def perfil_autoridad(id):
+    """Perfil de una autoridad con sus propuestas"""
+    # Obtener datos de la autoridad (desde JSON o BD)
+    autoridades = get_autoridades_from_json()  # función que ya tienes
+    autoridad = next((a for a in autoridades if a['id'] == id), None)
+    if not autoridad:
+        flash('Autoridad no encontrada', 'danger')
+        return redirect(url_for('estado'))
+
+    # Obtener propuestas de la autoridad (excluyendo Archivadas)
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM propuestas
+            WHERE autoridad_id = %s AND estado != 'Archivada'
+            ORDER BY fecha_publicacion DESC, created_at DESC
+        """, (id,))
+        propuestas = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error cargando propuestas: {e}")
+        propuestas = []
+
+    return render_template('estado/perfil_autoridad.html', 
+                         autoridad=autoridad, 
+                         propuestas=propuestas)
 
 # ========== RUTAS DE ESTADO ==========
 
@@ -3841,17 +4035,6 @@ def estado():
         autoridades = []
     
     return render_template('estado/index.html', autoridades=autoridades)
-
-@app.route('/estado/perfil/<int:id>')
-def perfil_autoridad(id):
-    autoridades = get_autoridades_from_json()
-    autoridad = next((a for a in autoridades if a['id'] == id), None)
-    
-    if not autoridad:
-        flash('Autoridad no encontrada', 'danger')
-        return redirect(url_for('estado'))
-    
-    return render_template('estado/perfil_autoridad.html', autoridad=autoridad)
 
 # ========== MercadoPago ======
 @app.route('/api/activar_premium_demo', methods=['POST'])

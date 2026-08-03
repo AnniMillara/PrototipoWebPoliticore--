@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Propuestas - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold">
+            <i class="fas fa-file-signature text-primary me-2"></i> Propuestas de Autoridades
+        </h1>
+        <a href="{{ url_for('admin_propuesta_nueva') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i> Nueva Propuesta
+        </a>
+    </div>
+
+    <div class="card-modern">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Título</th>
+                        <th>Autoridad</th>
+                        <th>Estado</th>
+                        <th>Fecha publicación</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prop in propuestas %}
+                    <tr>
+                        <td>{{ prop.id }}</td>
+                        <td>{{ prop.titulo }}</td>
+                        <td>{{ prop.autoridad_nombre }} {{ prop.autoridad_apellido or '' }}</td>
+                        <td>
+                            {# Mapeo de estados a clases CSS #}
+                            {% set estado_clase = {
+                                'Borrador': 'bg-secondary',
+                                'Publicada': 'bg-success',
+                                'Archivada': 'bg-danger',
+                                'En proceso': 'bg-info',
+                                'En tramitación': 'bg-warning text-dark',
+                                'En preparación': 'bg-warning text-dark'
+                            } %}
+                            <span class="badge {{ estado_clase[prop.estado] or 'bg-secondary' }}">
+                                {{ prop.estado }}
+                            </span>
+                        </td>
+                        <td>{{ prop.fecha_publicacion.strftime('%d/%m/%Y') if prop.fecha_publicacion else '-' }}</td>
+                        <td>
+                            <a href="{{ url_for('admin_propuesta_editar', id=prop.id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button class="btn btn-sm btn-outline-danger" onclick="eliminarPropuesta({{ prop.id }})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="text-center text-muted">No hay propuestas registradas</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function eliminarPropuesta(id) {
+    if (confirm('¿Estás seguro de eliminar esta propuesta?')) {
+        fetch('/admin/propuesta/eliminar/' + id, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) location.reload();
+            else alert('Error: ' + data.error);
+        })
+        .catch(err => alert('Error de red'));
+    }
+}
+</script>
+{% endblock %}

@@ -129,57 +129,56 @@
                             <li><a class="dropdown-item" href="{{ url_for('admin_simulaciones') }}">
                                     <i class="fas fa-gamepad me-2"></i> Simulaciones
                                 </a></li>
-                            <!-- En el dropdown de Admin, agrega estas líneas -->
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_cartas_evento') }}">
                                     <i class="fas fa-cards me-2"></i> Cartas de Evento
                                 </a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_rutas_alternativas') }}">
                                     <i class="fas fa-route me-2"></i> Rutas Alternativas
                                 </a></li>
+                            <!-- ===== NUEVO: Propuestas ===== -->
+                            <li><a class="dropdown-item" href="{{ url_for('admin_propuestas') }}">
+                                    <i class="fas fa-file-signature me-2"></i> Propuestas
+                                </a></li>
                             {% if current_user.is_super_admin %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_usuarios') }}">
                                     <i class="fas fa-users me-2"></i> Usuarios
                                 </a></li>
                             {% endif %}
+                            <li><a class="dropdown-item" href="{{ url_for('admin_noticias') }}">
+                                    <i class="fas fa-newspaper me-2"></i> Noticias
+                                </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_autoridades') }}">
+                                    <i class="fas fa-landmark me-2"></i> Autoridades
+                                </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_tareas') }}">
+                                    <i class="fas fa-tasks me-2"></i> Tareas
+                                </a></li>
+                        </ul>
                     </li>
-                    <li><a class="dropdown-item" href="{{ url_for('admin_noticias') }}">
-                            <i class="fas fa-newspaper me-2"></i> Noticias
-                        </a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('admin_autoridades') }}">
-                            <i class="fas fa-landmark me-2"></i> Autoridades
-                        </a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('admin_tareas') }}">
-                            <i class="fas fa-tasks me-2"></i> Tareas
-                        </a></li>
-                </ul>
-                </li>
-                {% endif %}
+                    {% endif %}
 
-                <!-- Cerrar Sesión -->
-                <li class="nav-item">
-                    <a class="btn btn-outline-danger btn-sm ms-2" href="{{ url_for('logout') }}">
-                        <i class="fas fa-sign-out-alt me-1"></i> Salir
-                    </a>
-                </li>
+                    <!-- Cerrar Sesión -->
+                    <li class="nav-item">
+                        <a class="btn btn-outline-danger btn-sm ms-2" href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt me-1"></i> Salir
+                        </a>
+                    </li>
 
-                <!-- ============================================ -->
-                <!-- USUARIO NO AUTENTICADO -->
-                <!-- ============================================ -->
-                {% else %}
-                <li class="nav-item">
-                    <a class="btn btn-primary btn-sm ms-2" href="{{ url_for('login') }}">
-                        <i class="fas fa-sign-in-alt me-1"></i> Iniciar Sesión
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="btn btn-outline-secondary btn-sm ms-2" href="{{ url_for('registro') }}">
-                        <i class="fas fa-user-plus me-1"></i> Registrarse
-                    </a>
-                </li>
-                {% endif %}
+                    <!-- ============================================ -->
+                    <!-- USUARIO NO AUTENTICADO -->
+                    <!-- ============================================ -->
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="btn btn-primary btn-sm ms-2" href="{{ url_for('login') }}">
+                            <i class="fas fa-sign-in-alt me-1"></i> Iniciar Sesión
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="btn btn-outline-secondary btn-sm ms-2" href="{{ url_for('registro') }}">
+                            <i class="fas fa-user-plus me-1"></i> Registrarse
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>

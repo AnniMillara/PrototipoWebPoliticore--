@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if propuesta else 'Nueva' }} Propuesta - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-modern">
+                <h4 class="fw-bold mb-4">
+                    <i class="fas fa-{{ 'edit' if propuesta else 'plus' }} text-primary me-2"></i>
+                    {{ 'Editar' if propuesta else 'Nueva' }} Propuesta
+                </h4>
+
+                <form method="POST">
+                    <!-- Autoridad -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Autoridad <span class="text-danger">*</span></label>
+                        <select class="form-select" name="autoridad_id" required>
+                            <option value="">Seleccionar autoridad...</option>
+                            {% for autoridad in autoridades %}
+                            <option value="{{ autoridad.id }}" {% if propuesta and propuesta.autoridad_id == autoridad.id %}selected{% endif %}>
+                                {{ autoridad.nombre }} {{ autoridad.apellido_paterno or '' }} - {{ autoridad.cargo }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Título -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Título <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="titulo" value="{{ propuesta.titulo if propuesta else '' }}" required>
+                    </div>
+
+                    <!-- Descripción (¿De qué habla?) -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">¿De qué habla? (Descripción) <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="descripcion" rows="4" required>{{ propuesta.descripcion if propuesta else '' }}</textarea>
+                        <small class="text-muted">Explica brevemente de qué trata la propuesta.</small>
+                    </div>
+
+                    <!-- Explicación (¿Cómo funciona?) -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">¿Cómo funciona? (Explicación)</label>
+                        <textarea class="form-control" name="explicacion" rows="3">{{ propuesta.explicacion if propuesta else '' }}</textarea>
+                        <small class="text-muted">Describe el mecanismo o la implementación de la propuesta.</small>
+                    </div>
+
+                    <!-- Impacto personal (¿Para qué sirve?) -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">¿Para qué sirve? (Impacto personal)</label>
+                        <textarea class="form-control" name="impacto_personal" rows="3">{{ propuesta.impacto_personal if propuesta else '' }}</textarea>
+                        <small class="text-muted">Beneficios o impacto de la propuesta en la vida cotidiana.</small>
+                    </div>
+
+                    <!-- Estado y Fecha -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Estado</label>
+                                <select class="form-select" name="estado">
+                                    <option value="Borrador" {% if propuesta and propuesta.estado == 'Borrador' %}selected{% endif %}>Borrador</option>
+                                    <option value="Publicada" {% if propuesta and propuesta.estado == 'Publicada' %}selected{% endif %}>Publicada</option>
+                                    <option value="Archivada" {% if propuesta and propuesta.estado == 'Archivada' %}selected{% endif %}>Archivada</option>
+                                    <option value="En proceso" {% if propuesta and propuesta.estado == 'En proceso' %}selected{% endif %}>En proceso</option>
+                                    <option value="En tramitación" {% if propuesta and propuesta.estado == 'En tramitación' %}selected{% endif %}>En tramitación</option>
+                                    <option value="En preparación" {% if propuesta and propuesta.estado == 'En preparación' %}selected{% endif %}>En preparación</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Fecha publicación</label>
+                                <input type="date" class="form-control" name="fecha_publicacion" 
+                                       value="{{ propuesta.fecha_publicacion if propuesta and propuesta.fecha_publicacion else '' }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fuente oficial -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Fuente oficial</label>
+                        <input type="text" class="form-control" name="fuente_oficial" 
+                               value="{{ propuesta.fuente_oficial if propuesta else '' }}" 
+                               placeholder="Ej: Ministerio, Diario Oficial, etc.">
+                        <small class="text-muted">Enlace o referencia a la fuente original.</small>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i> Guardar
+                        </button>
+                        <a href="{{ url_for('admin_propuestas') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i> Volver
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
