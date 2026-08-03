@@ -31,7 +31,8 @@ def get_db_connection():
         password=app.config['MYSQL_PASSWORD'],
         database=app.config['MYSQL_DB'],
         cursorclass=pymysql.cursors.DictCursor,
-        autocommit=True
+        autocommit=True,
+        ssl={'ca': '/etc/ssl/certs/ca-certificates.crt'}
     )
 
 class User(UserMixin):
