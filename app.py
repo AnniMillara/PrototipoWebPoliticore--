@@ -51,6 +51,7 @@ class User(UserMixin):
     
     @property
     def is_admin(self):
+        # 👇 AHORA ES ADMIN SI ES 1 (Super Admin) o 2 (Admin)
         return self.tipo_usuario_id in [1, 2]
     
     @property
@@ -125,7 +126,7 @@ def registro_profesor():
         email = request.form.get('email')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
-        plan = request.form.get('plan', 'mensual')
+        plan = request.form.get('plan', 'mensual')  # mensual o anual
         
         if password != confirm_password:
             flash('Las contraseñas no coinciden', 'danger')
@@ -142,6 +143,7 @@ def registro_profesor():
                 conn.close()
                 return render_template('registro_profesor.html')
             
+            # Calcular fecha de expiración según el plan
             if plan == 'anual':
                 fecha_expiracion = "DATE_ADD(CURDATE(), INTERVAL 365 DAY)"
                 precio = 11000
@@ -149,12 +151,13 @@ def registro_profesor():
                 fecha_expiracion = "DATE_ADD(CURDATE(), INTERVAL 30 DAY)"
                 precio = 1000
             
+            # Crear usuario con premium activado (simulación de pago)
             cur.execute(f"""
                 INSERT INTO usuarios (
-                    tipo_usuario_id, nombre, apellido_paterno, email, password,
+                    tipo_usuario_id, nombre, apellido_paterno, email, password, 
                     nivel, xp, activo, es_premium, fecha_suscripcion, fecha_expiracion, plan
                 ) VALUES (
-                    3, %s, %s, %s, %s,
+                    3, %s, %s, %s, %s, 
                     1, 0, 1, 1, CURDATE(), {fecha_expiracion}, %s
                 )
             """, (nombre, '', email, password, plan))
@@ -174,8 +177,11 @@ def registro_profesor():
 
 @app.route('/api/simular_pago', methods=['POST'])
 def simular_pago():
+    """Simula un pago (solo para la demo)"""
     data = request.json
     plan = data.get('plan', 'mensual')
+    
+    # Simular que el pago fue exitoso
     return jsonify({
         'success': True,
         'message': 'Pago simulado exitosamente',
@@ -210,17 +216,21 @@ def activar_premium():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        
+        # Activar premium por 30 días
         cur.execute("""
-            UPDATE usuarios
+            UPDATE usuarios 
             SET es_premium = TRUE,
                 fecha_suscripcion = CURDATE(),
                 fecha_expiracion = DATE_ADD(CURDATE(), INTERVAL 30 DAY),
                 plan = 'profesional'
             WHERE id = %s
         """, (current_user.id,))
+        
         conn.commit()
         cur.close()
         conn.close()
+        
         return jsonify({'success': True, 'message': '¡Premium activado por $1.000 CLP!'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -246,6 +256,7 @@ import json
 import os
 
 def get_noticias_from_json():
+    """Carga noticias desde el archivo JSON oficial"""
     try:
         json_path = os.path.join(os.path.dirname(__file__), 'data', 'noticias_2026.json')
         with open(json_path, 'r', encoding='utf-8') as f:
@@ -258,6 +269,8 @@ def get_noticias_from_json():
 @app.route('/')
 def index():
     noticias = get_noticias_from_json()
+    
+    # Si no hay noticias en JSON, usar datos de respaldo
     if not noticias:
         noticias = [
             {
@@ -288,8 +301,8 @@ def index():
         {'nombre': 'Panel para colegios', 'icono': 'school'}
     ]
     
-    return render_template('index.html',
-                         noticias_destacadas=noticias[:3],
+    return render_template('index.html', 
+                         noticias_destacadas=noticias[:3],  # Solo las primeras 3
                          proximas_funciones=proximas_funciones)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -298,29 +311,6 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
         
-        # 🔥 PARCHE DE EMERGENCIA: admin siempre entra
-        if email == 'admin@politicore.cl' and password == 'admin123':
-            # Crear usuario admin en memoria (sin BD)
-            from types import SimpleNamespace
-            admin_data = {
-                'id': 1,
-                'nombre': 'Admin',
-                'apellido_paterno': 'Sistema',
-                'email': 'admin@politicore.cl',
-                'tipo_usuario_id': 1,
-                'nivel': 1,
-                'xp': 0,
-                'activo': True,
-                'password': 'admin123',
-                'es_premium': False,
-                'fecha_expiracion': None
-            }
-            user = User(admin_data)
-            login_user(user)
-            flash('¡Bienvenido Admin (modo emergencia)!', 'success')
-            return redirect(url_for('admin_dashboard'))
-        
-        # Resto del login normal (por si otros usuarios existen)
         try:
             conn = get_db_connection()
             cur = conn.cursor()
@@ -364,6 +354,7 @@ def registro():
         plan = request.form.get('plan', 'gratis')
         tipo_usuario = request.form.get('tipo_usuario', 4)
         
+        # Validar que los campos no estén vacíos
         if not nombre or not email or not password or not confirm_password:
             flash('Todos los campos son obligatorios', 'danger')
             return render_template('registro.html')
@@ -379,6 +370,7 @@ def registro():
         try:
             conn = get_db_connection()
             cur = conn.cursor()
+            
             cur.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
             if cur.fetchone():
                 flash('Este email ya está registrado', 'danger')
@@ -386,7 +378,10 @@ def registro():
                 conn.close()
                 return render_template('registro.html')
             
+            # Determinar si es premium según el plan
             es_premium = 1 if plan in ['mensual', 'anual'] else 0
+            
+            # Calcular fecha de expiración
             if plan == 'anual':
                 fecha_expiracion = "DATE_ADD(CURDATE(), INTERVAL 365 DAY)"
             elif plan == 'mensual':
@@ -396,13 +391,14 @@ def registro():
             
             cur.execute(f"""
                 INSERT INTO usuarios (
-                    tipo_usuario_id, nombre, apellido_paterno, email, password,
+                    tipo_usuario_id, nombre, apellido_paterno, email, password, 
                     nivel, xp, activo, es_premium, fecha_suscripcion, fecha_expiracion, plan
                 ) VALUES (
-                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, 
                     1, 0, 1, %s, CURDATE(), {fecha_expiracion}, %s
                 )
             """, (tipo_usuario, nombre, '', email, password, es_premium, plan))
+            
             conn.commit()
             cur.close()
             conn.close()
@@ -411,6 +407,7 @@ def registro():
                 flash('¡Registro exitoso! Comienza a aprender.', 'success')
             else:
                 flash(f'✅ ¡Registro exitoso! Premium activado por ${"11.000" if plan == "anual" else "1.000"} CLP (Demo)', 'success')
+            
             return redirect(url_for('login'))
             
         except Exception as e:
@@ -426,12 +423,14 @@ def registro():
 @app.route('/estudiante/unirse', methods=['GET', 'POST'])
 @login_required
 def estudiante_unirse():
+    """Página para que los estudiantes se unan a una clase con código"""
     if current_user.is_docente:
         flash('Los profesores no pueden unirse a clases como estudiantes', 'warning')
         return redirect(url_for('profesor_salas'))
     
     if request.method == 'POST':
         codigo = request.form.get('codigo', '').strip().upper()
+        
         if not codigo:
             flash('Ingresa un código de clase', 'danger')
             return render_template('estudiante/unirse.html')
@@ -439,34 +438,42 @@ def estudiante_unirse():
         try:
             conn = get_db_connection()
             cur = conn.cursor()
+            
+            # Buscar la sala por código
             cur.execute("""
-                SELECT id, nombre, profesor_id
-                FROM salas_clase
+                SELECT id, nombre, profesor_id 
+                FROM salas_clase 
                 WHERE codigo_acceso = %s AND activa = TRUE
             """, (codigo,))
             sala = cur.fetchone()
+            
             if not sala:
                 flash('❌ Código inválido. Verifica con tu profesor.', 'danger')
                 cur.close()
                 conn.close()
                 return render_template('estudiante/unirse.html')
             
+            # Verificar si ya está en la sala
             cur.execute("""
-                SELECT id FROM sala_alumnos
+                SELECT id FROM sala_alumnos 
                 WHERE sala_id = %s AND alumno_id = %s AND activo = TRUE
             """, (sala['id'], current_user.id))
             ya_inscrito = cur.fetchone()
+            
             if ya_inscrito:
                 flash('✅ Ya estás en esta clase', 'info')
                 return redirect(url_for('estudiante_mis_clases'))
             
+            # Unir al estudiante a la sala
             cur.execute("""
                 INSERT INTO sala_alumnos (sala_id, alumno_id)
                 VALUES (%s, %s)
             """, (sala['id'], current_user.id))
+            
             conn.commit()
             cur.close()
             conn.close()
+            
             flash(f'✅ ¡Te has unido a la clase "{sala["nombre"]}"!', 'success')
             return redirect(url_for('estudiante_mis_clases'))
             
@@ -476,9 +483,11 @@ def estudiante_unirse():
     
     return render_template('estudiante/unirse.html')
 
+
 @app.route('/estudiante/mis-clases')
 @login_required
 def estudiante_mis_clases():
+    """Ver las clases a las que está inscrito el estudiante"""
     if current_user.is_docente:
         flash('Los profesores usan "Mis Salas de Clase"', 'warning')
         return redirect(url_for('profesor_salas'))
@@ -486,11 +495,12 @@ def estudiante_mis_clases():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        
         cur.execute("""
-            SELECT s.id, s.nombre, s.codigo_acceso,
+            SELECT s.id, s.nombre, s.codigo_acceso, 
                    u.nombre as profesor_nombre,
                    sa.fecha_ingreso,
-                   (SELECT COUNT(*) FROM sala_progreso
+                   (SELECT COUNT(*) FROM sala_progreso 
                     WHERE sala_id = s.id AND alumno_id = %s AND completada = TRUE) as lecciones_completadas
             FROM sala_alumnos sa
             JOIN salas_clase s ON sa.sala_id = s.id
@@ -499,6 +509,7 @@ def estudiante_mis_clases():
             ORDER BY sa.fecha_ingreso DESC
         """, (current_user.id, current_user.id))
         clases = cur.fetchall()
+        
         cur.close()
         conn.close()
     except Exception as e:
@@ -507,9 +518,11 @@ def estudiante_mis_clases():
     
     return render_template('estudiante/mis_clases.html', clases=clases)
 
+
 @app.route('/estudiante/clase/<int:sala_id>')
 @login_required
 def estudiante_clase_detalle(sala_id):
+    """Ver el progreso en una clase específica"""
     if current_user.is_docente:
         flash('Los profesores no pueden ver esto como estudiantes', 'warning')
         return redirect(url_for('profesor_salas'))
@@ -517,6 +530,8 @@ def estudiante_clase_detalle(sala_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        
+        # Verificar que el estudiante está en la sala
         cur.execute("""
             SELECT s.*, u.nombre as profesor_nombre
             FROM salas_clase s
@@ -525,20 +540,23 @@ def estudiante_clase_detalle(sala_id):
             WHERE s.id = %s AND sa.alumno_id = %s AND sa.activo = TRUE
         """, (sala_id, current_user.id))
         sala = cur.fetchone()
+        
         if not sala:
             flash('No tienes acceso a esta clase', 'danger')
             return redirect(url_for('estudiante_mis_clases'))
         
+        # Obtener progreso del estudiante en esta sala
         cur.execute("""
             SELECT l.id, l.titulo, l.xp,
                    sp.completada, sp.puntaje, sp.fecha_completada
             FROM lecciones l
-            LEFT JOIN sala_progreso sp ON l.id = sp.leccion_id
+            LEFT JOIN sala_progreso sp ON l.id = sp.leccion_id 
                 AND sp.alumno_id = %s AND sp.sala_id = %s
             WHERE l.activo = TRUE
             ORDER BY l.id
         """, (current_user.id, sala_id))
         progreso = cur.fetchall()
+        
         cur.close()
         conn.close()
     except Exception as e:
@@ -546,7 +564,9 @@ def estudiante_clase_detalle(sala_id):
         flash('Error al cargar la clase', 'danger')
         return redirect(url_for('estudiante_mis_clases'))
     
-    return render_template('estudiante/clase_detalle.html', sala=sala, progreso=progreso)
+    return render_template('estudiante/clase_detalle.html', 
+                         sala=sala, 
+                         progreso=progreso)
 
 # ========== RUTAS DE LECCIONES ==========
 
@@ -560,12 +580,12 @@ def lecciones():
         
         for mundo in mundos:
             cur.execute("""
-                SELECT l.*,
-                       CASE
+                SELECT l.*, 
+                       CASE 
                            WHEN pl.completada THEN 'completada'
                            ELSE 'disponible'
                        END as estado,
-                       CASE
+                       CASE 
                            WHEN pl.completada THEN 100
                            ELSE 0
                        END as progreso
@@ -576,10 +596,12 @@ def lecciones():
             """, (current_user.id if current_user.is_authenticated else 0, mundo['id']))
             
             lecciones_data = cur.fetchall()
+            
             if not current_user.is_authenticated:
                 for leccion in lecciones_data:
                     leccion['estado'] = 'bloqueada'
                     leccion['progreso'] = 0
+            
             mundo['lecciones'] = lecciones_data
             
         cur.close()
@@ -611,6 +633,7 @@ def detalle_leccion(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        
         cur.execute("""
             SELECT l.*, ma.nombre as mundo
             FROM lecciones l
@@ -618,10 +641,14 @@ def detalle_leccion(id):
             WHERE l.id = %s AND l.activo = TRUE
         """, (id,))
         leccion = cur.fetchone()
+        
         if leccion:
+            # 👇 OBTENER TODAS LAS ACTIVIDADES (tests) DE LA LECCIÓN
             cur.execute("SELECT * FROM actividades_leccion WHERE leccion_id = %s ORDER BY orden", (id,))
             actividades = cur.fetchall()
+            
             if actividades:
+                # 👇 GUARDAR TODAS LAS ACTIVIDADES EN UNA LISTA
                 leccion['actividades'] = []
                 for act in actividades:
                     leccion['actividades'].append({
@@ -633,6 +660,7 @@ def detalle_leccion(id):
                         'explicacion': act['explicacion'],
                         'orden': act['orden']
                     })
+                # Mantener compatibilidad con la vista anterior (primer test)
                 leccion['actividad'] = leccion['actividades'][0] if leccion['actividades'] else None
             else:
                 leccion['actividades'] = []
@@ -643,6 +671,7 @@ def detalle_leccion(id):
                     'respuesta_correcta': 0,
                     'explicacion': 'Explicación de la respuesta correcta.'
                 }
+        
         cur.close()
         conn.close()
     except Exception as e:
@@ -685,9 +714,11 @@ def completar_leccion():
     data = request.json
     leccion_id = data.get('leccion_id')
     sala_id = data.get('sala_id')
+    
     if not leccion_id:
         return jsonify({'success': False, 'error': 'ID de lección requerido'})
     
+    # 🔥 VALIDAR sala_id: convertir a int solo si es numérico
     try:
         sala_id_int = int(sala_id) if sala_id else None
     except (ValueError, TypeError):
@@ -696,20 +727,24 @@ def completar_leccion():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM progreso_lecciones WHERE usuario_id = %s AND leccion_id = %s",
+        
+        # --- 1. Registrar progreso global ---
+        cur.execute("SELECT * FROM progreso_lecciones WHERE usuario_id = %s AND leccion_id = %s", 
                    (current_user.id, leccion_id))
         existente = cur.fetchone()
+        
         cur.execute("SELECT xp FROM lecciones WHERE id = %s", (leccion_id,))
         leccion = cur.fetchone()
         xp_ganado = leccion['xp'] if leccion else 50
         
         if existente and existente['completada']:
+            # Ya completada
             pass
         else:
             if existente:
                 cur.execute("""
-                    UPDATE progreso_lecciones
-                    SET completada = TRUE,
+                    UPDATE progreso_lecciones 
+                    SET completada = TRUE, 
                         fecha_completada = NOW(),
                         puntaje = 100,
                         intentos = intentos + 1
@@ -720,11 +755,20 @@ def completar_leccion():
                     INSERT INTO progreso_lecciones (usuario_id, leccion_id, completada, puntaje, fecha_completada)
                     VALUES (%s, %s, TRUE, 100, NOW())
                 """, (current_user.id, leccion_id))
-            cur.execute("UPDATE usuarios SET xp = xp + %s WHERE id = %s", (xp_ganado, current_user.id))
+            
+            cur.execute("""
+                UPDATE usuarios 
+                SET xp = xp + %s
+                WHERE id = %s
+            """, (xp_ganado, current_user.id))
         
+        # --- 2. Registrar progreso en la sala (SOLO si sala_id_int es válido) ---
         if sala_id_int is not None:
-            cur.execute("SELECT id FROM sala_alumnos WHERE sala_id = %s AND alumno_id = %s AND activo = TRUE",
-                       (sala_id_int, current_user.id))
+            # Verificar si el alumno está en esa sala
+            cur.execute("""
+                SELECT id FROM sala_alumnos 
+                WHERE sala_id = %s AND alumno_id = %s AND activo = TRUE
+            """, (sala_id_int, current_user.id))
             if cur.fetchone():
                 cur.execute("""
                     INSERT INTO sala_progreso (sala_id, alumno_id, leccion_id, completada, fecha_completada, puntaje)
@@ -736,11 +780,15 @@ def completar_leccion():
                 """, (sala_id_int, current_user.id, leccion_id))
                 print(f"✅ Progreso guardado en sala {sala_id_int}")
         else:
-            cur.execute("SELECT sala_id FROM sala_alumnos WHERE alumno_id = %s AND activo = TRUE", (current_user.id,))
+            # Si no se pasó sala_id válido, buscar todas las salas del alumno
+            cur.execute("""
+                SELECT sala_id FROM sala_alumnos 
+                WHERE alumno_id = %s AND activo = TRUE
+            """, (current_user.id,))
             salas = cur.fetchall()
             if salas:
                 for row in salas:
-                    sala_id_alumno = row['sala_id']
+                    sala_id_alumno = row['sala_id']  # Ojo: DictCursor devuelve dict
                     cur.execute("""
                         INSERT INTO sala_progreso (sala_id, alumno_id, leccion_id, completada, fecha_completada, puntaje)
                         VALUES (%s, %s, %s, TRUE, NOW(), 100)
@@ -756,6 +804,7 @@ def completar_leccion():
         conn.commit()
         cur.close()
         conn.close()
+        
         return jsonify({'success': True, 'xp': xp_ganado})
         
     except Exception as e:
@@ -763,651 +812,6 @@ def completar_leccion():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
-
-# ============================================
-# RUTAS DE PERFIL
-# ============================================
-
-@app.route('/perfil')
-@login_required
-def perfil():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT u.*, tu.nombre as tipo_usuario
-            FROM usuarios u
-            LEFT JOIN tipos_usuario tu ON u.tipo_usuario_id = tu.id
-            WHERE u.id = %s
-        """, (current_user.id,))
-        usuario = cur.fetchone()
-        cur.execute("""
-            SELECT COUNT(*) as total
-            FROM progreso_lecciones
-            WHERE usuario_id = %s AND completada = TRUE
-        """, (current_user.id,))
-        completadas = cur.fetchone()
-        insignias = []
-        cur.close()
-        conn.close()
-        return render_template('perfil/index.html',
-                             usuario=usuario,
-                             completadas=completadas['total'] if completadas else 0,
-                             insignias=insignias)
-    except Exception as e:
-        print(f"Error en perfil: {e}")
-        usuario = {
-            'nombre': current_user.nombre,
-            'apellido_paterno': current_user.apellido_paterno,
-            'email': current_user.email,
-            'nivel': current_user.nivel,
-            'xp': current_user.xp,
-            'tipo_usuario': 'Estudiante'
-        }
-        completadas = 0
-        insignias = []
-        return render_template('perfil/index.html',
-                             usuario=usuario,
-                             completadas=completadas,
-                             insignias=insignias)
-
-# ============================================
-# CONFIGURACIÓN DE SUBIDA DE ARCHIVOS
-# ============================================
-
-import os
-from werkzeug.utils import secure_filename
-from flask import send_from_directory
-
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar'}
-
-os.makedirs(os.path.join(UPLOAD_FOLDER, 'autoridades'), exist_ok=True)
-os.makedirs(os.path.join(UPLOAD_FOLDER, 'perfiles'), exist_ok=True)
-os.makedirs(os.path.join(UPLOAD_FOLDER, 'tareas'), exist_ok=True)
-
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-@app.route('/uploads/<path:filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-@app.route('/api/subir_foto_perfil', methods=['POST'])
-@login_required
-def subir_foto_perfil():
-    if 'foto' not in request.files:
-        return jsonify({'error': 'No se seleccionó ningún archivo'}), 400
-    file = request.files['foto']
-    if file.filename == '':
-        return jsonify({'error': 'No se seleccionó ningún archivo'}), 400
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'Formato no permitido. Usa: PNG, JPG, JPEG, GIF, WEBP'}), 400
-    try:
-        filename = secure_filename(file.filename)
-        extension = filename.rsplit('.', 1)[1].lower()
-        nuevo_nombre = f"perfil_{current_user.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.{extension}"
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], 'perfiles', nuevo_nombre)
-        file.save(file_path)
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE usuarios SET foto_perfil = %s WHERE id = %s", (f'/uploads/perfiles/{nuevo_nombre}', current_user.id))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({
-            'success': True,
-            'foto': f'/uploads/perfiles/{nuevo_nombre}',
-            'message': 'Foto de perfil actualizada'
-        })
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/eliminar_foto_perfil', methods=['POST'])
-@login_required
-def eliminar_foto_perfil():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT foto_perfil FROM usuarios WHERE id = %s", (current_user.id,))
-        usuario = cur.fetchone()
-        if usuario and usuario['foto_perfil']:
-            foto_path = os.path.join(app.config['UPLOAD_FOLDER'], 'perfiles',
-                                    usuario['foto_perfil'].split('/')[-1])
-            if os.path.exists(foto_path):
-                os.remove(foto_path)
-            cur.execute("UPDATE usuarios SET foto_perfil = NULL WHERE id = %s", (current_user.id,))
-            conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True, 'message': 'Foto eliminada'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# ============================================
-# RUTAS PROFESOR - TAREAS
-# ============================================
-
-@app.route('/profesor/tareas')
-@login_required
-@premium_required
-def profesor_tareas():
-    if not current_user.is_docente:
-        flash('Solo profesores pueden acceder a esta sección', 'danger')
-        return redirect(url_for('index'))
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM tareas ORDER BY fecha_creacion DESC")
-        tareas = cur.fetchall()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        print(f"Error en profesor_tareas: {e}")
-        tareas = []
-    return render_template('profesor/tareas.html', tareas=tareas)
-
-# ============================================
-# RUTAS PROFESOR - SALAS DE CLASE
-# ============================================
-
-@app.route('/profesor/salas')
-@login_required
-def profesor_salas():
-    if not current_user.is_docente:
-        flash('Solo profesores pueden acceder', 'danger')
-        return redirect(url_for('index'))
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT s.*,
-                   (SELECT COUNT(*) FROM sala_alumnos WHERE sala_id = s.id AND activo = TRUE) as total_alumnos,
-                   (SELECT COUNT(*) FROM sala_progreso WHERE sala_id = s.id AND completada = TRUE) as total_lecciones_completadas
-            FROM salas_clase s
-            WHERE s.profesor_id = %s AND s.activa = TRUE
-            ORDER BY s.creada_en DESC
-        """, (current_user.id,))
-        salas = cur.fetchall()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        print(f"Error en profesor_salas: {e}")
-        salas = []
-    return render_template('profesor/salas.html', salas=salas)
-
-@app.route('/profesor/sala/nueva', methods=['GET', 'POST'])
-@login_required
-def profesor_sala_nueva():
-    if not current_user.is_docente:
-        flash('Solo profesores pueden acceder', 'danger')
-        return redirect(url_for('index'))
-    if request.method == 'POST':
-        nombre = request.form.get('nombre')
-        descripcion = request.form.get('descripcion')
-        if not nombre:
-            flash('El nombre de la sala es obligatorio', 'danger')
-            return render_template('profesor/sala_form.html')
-        import random
-        import string
-        codigo = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("""
-                INSERT INTO salas_clase (nombre, descripcion, codigo_acceso, profesor_id)
-                VALUES (%s, %s, %s, %s)
-            """, (nombre, descripcion, codigo, current_user.id))
-            conn.commit()
-            cur.close()
-            conn.close()
-            flash(f'✅ ¡Sala creada exitosamente! Código: {codigo}', 'success')
-            return redirect(url_for('profesor_salas'))
-        except Exception as e:
-            print(f"Error al crear sala: {e}")
-            flash('Error al crear la sala', 'danger')
-    return render_template('profesor/sala_form.html')
-
-@app.route('/profesor/sala/<int:sala_id>')
-@login_required
-def profesor_sala_detalle(sala_id):
-    if not current_user.is_docente:
-        flash('Solo profesores pueden acceder', 'danger')
-        return redirect(url_for('index'))
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM salas_clase WHERE id = %s AND profesor_id = %s AND activa = TRUE", (sala_id, current_user.id))
-        sala = cur.fetchone()
-        if not sala:
-            flash('Sala no encontrada', 'danger')
-            return redirect(url_for('profesor_salas'))
-        
-        cur.execute("""
-            SELECT u.id, u.nombre, u.apellido_paterno, u.email, u.nivel, u.xp,
-                   sa.fecha_ingreso,
-                   (SELECT COUNT(*) FROM sala_progreso
-                    WHERE sala_id = %s AND alumno_id = u.id AND completada = TRUE) as lecciones_completadas,
-                   (SELECT COUNT(*) FROM sala_progreso
-                    WHERE sala_id = %s AND alumno_id = u.id) as total_intentos,
-                   (SELECT ROUND(AVG(puntaje)) FROM sala_progreso
-                    WHERE sala_id = %s AND alumno_id = u.id AND completada = TRUE) as promedio_puntaje
-            FROM sala_alumnos sa
-            JOIN usuarios u ON sa.alumno_id = u.id
-            WHERE sa.sala_id = %s AND sa.activo = TRUE
-            ORDER BY u.nombre
-        """, (sala_id, sala_id, sala_id, sala_id))
-        alumnos = cur.fetchall()
-        
-        cur.execute("""
-            SELECT l.id, l.titulo, l.xp, l.icono,
-                   COUNT(DISTINCT sp.alumno_id) as alumnos_completaron,
-                   ROUND(AVG(sp.puntaje)) as promedio_puntaje_leccion
-            FROM lecciones l
-            LEFT JOIN sala_progreso sp ON l.id = sp.leccion_id
-                AND sp.sala_id = %s AND sp.completada = TRUE
-            WHERE l.activo = TRUE
-            GROUP BY l.id
-            ORDER BY l.id
-        """, (sala_id,))
-        lecciones_progreso = cur.fetchall()
-        
-        total_alumnos = len(alumnos)
-        for leccion in lecciones_progreso:
-            leccion['porcentaje'] = round((leccion['alumnos_completaron'] / total_alumnos) * 100) if total_alumnos > 0 else 0
-        
-        estadisticas = {
-            'total_alumnos': total_alumnos,
-            'total_lecciones': len(lecciones_progreso),
-            'lecciones_completadas_totales': sum(l['alumnos_completaron'] for l in lecciones_progreso),
-            'promedio_general': round(sum(l['promedio_puntaje_leccion'] or 0 for l in lecciones_progreso) / len(lecciones_progreso) if lecciones_progreso else 0)
-        }
-        cur.close()
-        conn.close()
-    except Exception as e:
-        print(f"Error en sala_detalle: {e}")
-        flash('Error al cargar la sala', 'danger')
-        return redirect(url_for('profesor_salas'))
-    
-    return render_template('profesor/sala_detalle.html',
-                         sala=sala,
-                         alumnos=alumnos,
-                         lecciones_progreso=lecciones_progreso,
-                         estadisticas=estadisticas,
-                         total_alumnos=total_alumnos)
-
-@app.route('/profesor/sala/<int:sala_id>/alumno/<int:alumno_id>')
-@login_required
-def profesor_sala_alumno(sala_id, alumno_id):
-    if not current_user.is_docente:
-        flash('Solo profesores pueden acceder', 'danger')
-        return redirect(url_for('index'))
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM salas_clase WHERE id = %s AND profesor_id = %s AND activa = TRUE", (sala_id, current_user.id))
-        sala = cur.fetchone()
-        if not sala:
-            flash('Sala no encontrada', 'danger')
-            return redirect(url_for('profesor_salas'))
-        
-        cur.execute("""
-            SELECT u.*, sa.fecha_ingreso
-            FROM usuarios u
-            JOIN sala_alumnos sa ON u.id = sa.alumno_id
-            WHERE u.id = %s AND sa.sala_id = %s AND sa.activo = TRUE
-        """, (alumno_id, sala_id))
-        alumno = cur.fetchone()
-        if not alumno:
-            flash('Alumno no encontrado en esta sala', 'danger')
-            return redirect(url_for('profesor_sala_detalle', sala_id=sala_id))
-        
-        cur.execute("""
-            SELECT l.id, l.titulo, l.xp, l.icono,
-                   sp.completada, sp.puntaje, sp.fecha_completada,
-                   CASE WHEN sp.completada THEN 'Completada' ELSE 'Pendiente' END as estado
-            FROM lecciones l
-            LEFT JOIN sala_progreso sp ON l.id = sp.leccion_id
-                AND sp.alumno_id = %s AND sp.sala_id = %s
-            WHERE l.activo = TRUE
-            ORDER BY l.id
-        """, (alumno_id, sala_id))
-        progreso = cur.fetchall()
-        total_lecciones = len(progreso)
-        completadas = sum(1 for p in progreso if p['completada'])
-        promedio = round(sum(p['puntaje'] or 0 for p in progreso if p['completada']) / completadas if completadas > 0 else 0)
-        cur.close()
-        conn.close()
-    except Exception as e:
-        print(f"Error: {e}")
-        flash('Error al cargar los datos', 'danger')
-        return redirect(url_for('profesor_sala_detalle', sala_id=sala_id))
-    
-    return render_template('profesor/sala_alumno.html',
-                         sala=sala,
-                         alumno=alumno,
-                         progreso=progreso,
-                         total_lecciones=total_lecciones,
-                         completadas=completadas,
-                         promedio=promedio)
-
-@app.route('/profesor/sala/<int:sala_id>/eliminar', methods=['POST'])
-@login_required
-def profesor_sala_eliminar(sala_id):
-    if not current_user.is_docente:
-        return jsonify({'error': 'No autorizado'}), 403
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE salas_clase SET activa = FALSE WHERE id = %s AND profesor_id = %s", (sala_id, current_user.id))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/sala/unirse', methods=['POST'])
-@login_required
-def sala_unirse():
-    data = request.json
-    codigo = data.get('codigo', '').strip().upper()
-    if not codigo:
-        return jsonify({'error': 'Código requerido'}), 400
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT id FROM salas_clase WHERE codigo_acceso = %s AND activa = TRUE", (codigo,))
-        sala = cur.fetchone()
-        if not sala:
-            return jsonify({'error': 'Código inválido o sala inactiva'}), 404
-        cur.execute("INSERT IGNORE INTO sala_alumnos (sala_id, alumno_id) VALUES (%s, %s)", (sala['id'], current_user.id))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True, 'message': '¡Te has unido a la sala!'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# ========== RUTAS ADMIN - DASHBOARD ==========
-
-@app.route('/admin')
-@login_required
-def admin_dashboard():
-    if not current_user.is_admin:
-        flash('No tienes permisos', 'danger')
-        return redirect(url_for('index'))
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) as total FROM usuarios WHERE activo = TRUE")
-        total_usuarios = cur.fetchone()['total']
-        cur.execute("SELECT COUNT(*) as total FROM lecciones WHERE activo = TRUE")
-        total_lecciones = cur.fetchone()['total']
-        cur.execute("SELECT COUNT(*) as total FROM campanas_simulacion WHERE activa = TRUE")
-        total_simulaciones = cur.fetchone()['total']
-        cur.execute("SELECT COUNT(*) as total FROM autoridades WHERE activo = TRUE")
-        total_autoridades = cur.fetchone()['total']
-        cur.close()
-        conn.close()
-        estadisticas = [
-            {'nombre': 'Usuarios', 'valor': total_usuarios, 'icono': 'users', 'color': '#2563EB'},
-            {'nombre': 'Lecciones', 'valor': total_lecciones, 'icono': 'book', 'color': '#10B981'},
-            {'nombre': 'Simulaciones', 'valor': total_simulaciones, 'icono': 'gamepad', 'color': '#8B5CF6'},
-            {'nombre': 'Autoridades', 'valor': total_autoridades, 'icono': 'landmark', 'color': '#F59E0B'}
-        ]
-    except:
-        estadisticas = [
-            {'nombre': 'Usuarios', 'valor': 0, 'icono': 'users', 'color': '#2563EB'},
-            {'nombre': 'Lecciones', 'valor': 0, 'icono': 'book', 'color': '#10B981'},
-            {'nombre': 'Simulaciones', 'valor': 0, 'icono': 'gamepad', 'color': '#8B5CF6'},
-            {'nombre': 'Autoridades', 'valor': 0, 'icono': 'landmark', 'color': '#F59E0B'}
-        ]
-    return render_template('admin/dashboard.html', estadisticas=estadisticas)
-
-# ========== RUTAS ADMIN - LECCIONES ==========
-
-@app.route('/admin/lecciones')
-@login_required
-def admin_lecciones():
-    if not current_user.is_admin:
-        flash('No tienes permisos', 'danger')
-        return redirect(url_for('index'))
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT l.*, ma.nombre as mundo_nombre
-            FROM lecciones l
-            LEFT JOIN mundos_aprendizaje ma ON l.mundo_id = ma.id
-            ORDER BY l.id DESC
-        """)
-        lecciones = cur.fetchall()
-        cur.close()
-        conn.close()
-    except:
-        lecciones = []
-    return render_template('admin/lecciones.html', lecciones=lecciones)
-
-def get_mundos():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM mundos_aprendizaje ORDER BY nombre")
-        mundos = cur.fetchall()
-        cur.close()
-        conn.close()
-        return mundos
-    except Exception as e:
-        print(f"Error obteniendo mundos: {e}")
-        return []
-
-@app.route('/admin/leccion/nueva', methods=['GET', 'POST'])
-@login_required
-def admin_leccion_nueva():
-    if not current_user.is_admin:
-        flash('No tienes permisos', 'danger')
-        return redirect(url_for('index'))
-    
-    if request.method == 'POST':
-        titulo = request.form.get('titulo', '').strip()
-        mundo_id = request.form.get('mundo_id', '').strip()
-        if not titulo:
-            flash('El título de la lección es obligatorio', 'danger')
-            return render_template('admin/leccion_form.html', mundos=get_mundos(), leccion=None)
-        if not mundo_id:
-            flash('Debes seleccionar un mundo', 'danger')
-            return render_template('admin/leccion_form.html', mundos=get_mundos(), leccion=None)
-        try:
-            mundo_id = int(mundo_id)
-        except ValueError:
-            flash('ID de mundo inválido', 'danger')
-            return render_template('admin/leccion_form.html', mundos=get_mundos(), leccion=None)
-        
-        situacion_inicial = request.form.get('situacion_inicial', '')
-        explicacion = request.form.get('explicacion', '')
-        ejemplo = request.form.get('ejemplo', '')
-        historia = request.form.get('historia', '')
-        curiosidad = request.form.get('curiosidad', '')
-        reflexion = request.form.get('reflexion', '')
-        xp = request.form.get('xp', 50)
-        icono = request.form.get('icono', 'book')
-        try:
-            xp = int(xp)
-            if xp < 0:
-                xp = 50
-        except ValueError:
-            xp = 50
-        
-        preguntas = request.form.getlist('preguntas[]')
-        opciones1 = request.form.getlist('opciones1[]')
-        opciones2 = request.form.getlist('opciones2[]')
-        opciones3 = request.form.getlist('opciones3[]')
-        respuestas_correctas = request.form.getlist('respuestas_correctas[]')
-        explicaciones = request.form.getlist('explicaciones[]')
-        
-        if not preguntas or len(preguntas) == 0 or not preguntas[0].strip():
-            flash('Debe haber al menos una pregunta.', 'danger')
-            return render_template('admin/leccion_form.html', mundos=get_mundos(), leccion=None)
-        
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("""
-                INSERT INTO lecciones (
-                    mundo_id, titulo, situacion_inicial, explicacion,
-                    ejemplo, historia, curiosidad, reflexion, xp, icono, activo
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
-            """, (mundo_id, titulo, situacion_inicial, explicacion,
-                  ejemplo, historia, curiosidad, reflexion, xp, icono))
-            leccion_id = cur.lastrowid
-            
-            for i in range(len(preguntas)):
-                if not preguntas[i].strip():
-                    continue
-                pregunta = preguntas[i].strip()
-                op1 = opciones1[i].strip() if i < len(opciones1) and opciones1[i].strip() else 'Opción 1'
-                op2 = opciones2[i].strip() if i < len(opciones2) and opciones2[i].strip() else 'Opción 2'
-                op3 = opciones3[i].strip() if i < len(opciones3) and opciones3[i].strip() else 'Opción 3'
-                try:
-                    respuesta_correcta = int(respuestas_correctas[i]) if i < len(respuestas_correctas) else 0
-                    if respuesta_correcta not in [0, 1, 2]:
-                        respuesta_correcta = 0
-                except (ValueError, IndexError):
-                    respuesta_correcta = 0
-                explicacion_act = explicaciones[i].strip() if i < len(explicaciones) and explicaciones[i].strip() else ''
-                opciones_json = json.dumps([op1, op2, op3])
-                respuesta_json = json.dumps(respuesta_correcta)
-                cur.execute("""
-                    INSERT INTO actividades_leccion (
-                        leccion_id, tipo, pregunta, opciones, respuesta_correcta, explicacion, orden
-                    ) VALUES (%s, 'alternativas', %s, %s, %s, %s, %s)
-                """, (leccion_id, pregunta, opciones_json, respuesta_json, explicacion_act, i))
-            conn.commit()
-            cur.close()
-            conn.close()
-            flash(f'¡Lección creada exitosamente con {len(preguntas)} pregunta(s)!', 'success')
-            return redirect(url_for('admin_lecciones'))
-        except Exception as e:
-            print(f"❌ ERROR al crear lección: {e}")
-            import traceback
-            traceback.print_exc()
-            flash(f'Error al crear la lección: {str(e)}', 'danger')
-    
-    mundos = get_mundos()
-    return render_template('admin/leccion_form.html', mundos=mundos, leccion=None)
-
-@app.route('/admin/leccion/editar/<int:id>', methods=['GET', 'POST'])
-@login_required
-def admin_leccion_editar(id):
-    if not current_user.is_admin:
-        flash('No tienes permisos', 'danger')
-        return redirect(url_for('index'))
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        if request.method == 'POST':
-            titulo = request.form.get('titulo', '').strip()
-            mundo_id = request.form.get('mundo_id', '').strip()
-            if not titulo or not mundo_id:
-                flash('Título y mundo son obligatorios', 'danger')
-                return redirect(url_for('admin_leccion_editar', id=id))
-            mundo_id = int(mundo_id)
-            situacion_inicial = request.form.get('situacion_inicial', '')
-            explicacion = request.form.get('explicacion', '')
-            ejemplo = request.form.get('ejemplo', '')
-            historia = request.form.get('historia', '')
-            curiosidad = request.form.get('curiosidad', '')
-            reflexion = request.form.get('reflexion', '')
-            xp = request.form.get('xp', 50)
-            icono = request.form.get('icono', 'book')
-            activo = 1 if request.form.get('activo') else 0
-            try:
-                xp = int(xp)
-                if xp < 0:
-                    xp = 50
-            except ValueError:
-                xp = 50
-            cur.execute("""
-                UPDATE lecciones
-                SET mundo_id = %s, titulo = %s, situacion_inicial = %s, explicacion = %s,
-                    ejemplo = %s, historia = %s, curiosidad = %s, reflexion = %s,
-                    xp = %s, icono = %s, activo = %s
-                WHERE id = %s
-            """, (mundo_id, titulo, situacion_inicial, explicacion, ejemplo, historia,
-                  curiosidad, reflexion, xp, icono, activo, id))
-            cur.execute("DELETE FROM actividades_leccion WHERE leccion_id = %s", (id,))
-            preguntas = request.form.getlist('preguntas[]')
-            opciones1 = request.form.getlist('opciones1[]')
-            opciones2 = request.form.getlist('opciones2[]')
-            opciones3 = request.form.getlist('opciones3[]')
-            respuestas_correctas = request.form.getlist('respuestas_correctas[]')
-            explicaciones = request.form.getlist('explicaciones[]')
-            for i in range(len(preguntas)):
-                if not preguntas[i].strip():
-                    continue
-                pregunta = preguntas[i].strip()
-                op1 = opciones1[i].strip() if i < len(opciones1) and opciones1[i].strip() else 'Opción 1'
-                op2 = opciones2[i].strip() if i < len(opciones2) and opciones2[i].strip() else 'Opción 2'
-                op3 = opciones3[i].strip() if i < len(opciones3) and opciones3[i].strip() else 'Opción 3'
-                try:
-                    respuesta_correcta = int(respuestas_correctas[i]) if i < len(respuestas_correctas) else 0
-                    if respuesta_correcta not in [0, 1, 2]:
-                        respuesta_correcta = 0
-                except (ValueError, IndexError):
-                    respuesta_correcta = 0
-                explicacion_act = explicaciones[i].strip() if i < len(explicaciones) and explicaciones[i].strip() else ''
-                opciones_json = json.dumps([op1, op2, op3])
-                respuesta_json = json.dumps(respuesta_correcta)
-                cur.execute("""
-                    INSERT INTO actividades_leccion (
-                        leccion_id, tipo, pregunta, opciones, respuesta_correcta, explicacion, orden
-                    ) VALUES (%s, 'alternativas', %s, %s, %s, %s, %s)
-                """, (id, pregunta, opciones_json, respuesta_json, explicacion_act, i))
-            conn.commit()
-            cur.close()
-            conn.close()
-            flash('¡Lección actualizada exitosamente!', 'success')
-            return redirect(url_for('admin_lecciones'))
-        cur.execute("SELECT * FROM lecciones WHERE id = %s", (id,))
-        leccion = cur.fetchone()
-        cur.execute("SELECT * FROM actividades_leccion WHERE leccion_id = %s ORDER BY orden", (id,))
-        actividades = cur.fetchall()
-        for act in actividades:
-            if act.get('opciones'):
-                act['opciones'] = json.loads(act['opciones']) if isinstance(act['opciones'], str) else act['opciones']
-            if act.get('respuesta_correcta'):
-                act['respuesta_correcta'] = json.loads(act['respuesta_correcta']) if isinstance(act['respuesta_correcta'], str) else act['respuesta_correcta']
-        leccion['actividades'] = actividades
-        cur.execute("SELECT * FROM mundos_aprendizaje ORDER BY nombre")
-        mundos = cur.fetchall()
-        cur.close()
-        conn.close()
-        return render_template('admin/leccion_form.html', leccion=leccion, mundos=mundos)
-    except Exception as e:
-        print(f"Error: {e}")
-        flash('Error al editar la lección', 'danger')
-        return redirect(url_for('admin_lecciones'))
-
-@app.route('/admin/leccion/eliminar/<int:id>', methods=['POST'])
-@login_required
-def admin_leccion_eliminar(id):
-    if not current_user.is_admin:
-        return jsonify({'error': 'No autorizado'}), 403
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM lecciones WHERE id = %s", (id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 # ============================================
 # RUTAS DE SIMULACIÓN - COMPLETAS
@@ -1747,7 +1151,7 @@ def simulacion_jugar(id):
                          ruta_alternativa=ruta_alternativa)
 
 # ============================================
-# FUNCIONES AUXILIARES PARA SIMULACIONES
+# FUNCIONES AUXILIARES
 # ============================================
 
 def get_simulacion_ejemplo(id):
@@ -2058,9 +1462,860 @@ def procesar_evento_simulacion():
     next_scene = int(escena_id) + 1
     return jsonify({'next_scene': next_scene})
 
+# ========== RUTAS DE PERFIL ==========
+
+@app.route('/perfil')
+@login_required
+def perfil():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("""
+            SELECT u.*, tu.nombre as tipo_usuario
+            FROM usuarios u
+            LEFT JOIN tipos_usuario tu ON u.tipo_usuario_id = tu.id
+            WHERE u.id = %s
+        """, (current_user.id,))
+        usuario = cur.fetchone()
+        
+        cur.execute("""
+            SELECT COUNT(*) as total
+            FROM progreso_lecciones
+            WHERE usuario_id = %s AND completada = TRUE
+        """, (current_user.id,))
+        completadas = cur.fetchone()
+        
+        # 🔥 AGREGAR INSIGNIAS (vacío por ahora para evitar error)
+        insignias = []
+        
+        cur.close()
+        conn.close()
+        
+        return render_template('perfil/index.html', 
+                             usuario=usuario, 
+                             completadas=completadas['total'] if completadas else 0,
+                             insignias=insignias)  # ← Asegurar que se pasa
+    except Exception as e:
+        print(f"Error en perfil: {e}")
+        usuario = {
+            'nombre': current_user.nombre,
+            'apellido_paterno': current_user.apellido_paterno,
+            'email': current_user.email,
+            'nivel': current_user.nivel,
+            'xp': current_user.xp,
+            'tipo_usuario': 'Estudiante'
+        }
+        completadas = 0
+        insignias = []  # ← Definir insignias vacías
+        return render_template('perfil/index.html', 
+                             usuario=usuario, 
+                             completadas=completadas,
+                             insignias=insignias)
+
+import os
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+
 # ============================================
-# RUTAS ADMIN - SIMULACIONES (CON ESCENAS)
+# CONFIGURACIÓN DE SUBIDA DE ARCHIVOS
 # ============================================
+
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar'}
+
+# Crear carpetas si no existen
+os.makedirs(os.path.join(UPLOAD_FOLDER, 'autoridades'), exist_ok=True)
+os.makedirs(os.path.join(UPLOAD_FOLDER, 'perfiles'), exist_ok=True)
+os.makedirs(os.path.join(UPLOAD_FOLDER, 'tareas'), exist_ok=True)  # 👈 NUEVO
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# ============================================
+# RUTA PARA SERVIR ARCHIVOS SUBIDOS
+# ============================================
+
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+# ============================================
+# SUBIR FOTO DE PERFIL (USUARIO)
+# ============================================
+
+@app.route('/api/subir_foto_perfil', methods=['POST'])
+@login_required
+def subir_foto_perfil():
+    if 'foto' not in request.files:
+        return jsonify({'error': 'No se seleccionó ningún archivo'}), 400
+    
+    file = request.files['foto']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No se seleccionó ningún archivo'}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({'error': 'Formato no permitido. Usa: PNG, JPG, JPEG, GIF, WEBP'}), 400
+    
+    try:
+        # Generar nombre único
+        filename = secure_filename(file.filename)
+        extension = filename.rsplit('.', 1)[1].lower()
+        nuevo_nombre = f"perfil_{current_user.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.{extension}"
+        
+        # Guardar archivo
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], 'perfiles', nuevo_nombre)
+        file.save(file_path)
+        
+        # Actualizar base de datos
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE usuarios 
+            SET foto_perfil = %s 
+            WHERE id = %s
+        """, (f'/uploads/perfiles/{nuevo_nombre}', current_user.id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True, 
+            'foto': f'/uploads/perfiles/{nuevo_nombre}',
+            'message': 'Foto de perfil actualizada'
+        })
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================
+# ELIMINAR FOTO DE PERFIL
+# ============================================
+
+@app.route('/api/eliminar_foto_perfil', methods=['POST'])
+@login_required
+def eliminar_foto_perfil():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Obtener foto actual
+        cur.execute("SELECT foto_perfil FROM usuarios WHERE id = %s", (current_user.id,))
+        usuario = cur.fetchone()
+        
+        if usuario and usuario['foto_perfil']:
+            # Eliminar archivo físico
+            foto_path = os.path.join(app.config['UPLOAD_FOLDER'], 'perfiles', 
+                                    usuario['foto_perfil'].split('/')[-1])
+            if os.path.exists(foto_path):
+                os.remove(foto_path)
+            
+            # Eliminar referencia en BD
+            cur.execute("UPDATE usuarios SET foto_perfil = NULL WHERE id = %s", (current_user.id,))
+            conn.commit()
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Foto eliminada'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============================================
+# RUTAS PROFESOR - TAREAS
+# ============================================
+
+@app.route('/profesor/tareas')
+@login_required
+@premium_required
+def profesor_tareas():
+    """Lista de tareas para descargar (solo lectura)"""
+    if not current_user.is_docente:
+        flash('Solo profesores pueden acceder a esta sección', 'danger')
+        return redirect(url_for('index'))
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM tareas ORDER BY fecha_creacion DESC")
+        tareas = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error en profesor_tareas: {e}")
+        tareas = []
+    
+    return render_template('profesor/tareas.html', tareas=tareas)
+
+
+# ============================================
+# RUTAS PROFESOR - SALAS DE CLASE
+# ============================================
+
+@app.route('/profesor/salas')
+@login_required
+def profesor_salas():
+    """Lista de salas del profesor"""
+    if not current_user.is_docente:
+        flash('Solo profesores pueden acceder', 'danger')
+        return redirect(url_for('index'))
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("""
+            SELECT s.*, 
+                   (SELECT COUNT(*) FROM sala_alumnos WHERE sala_id = s.id AND activo = TRUE) as total_alumnos,
+                   (SELECT COUNT(*) FROM sala_progreso WHERE sala_id = s.id AND completada = TRUE) as total_lecciones_completadas
+            FROM salas_clase s
+            WHERE s.profesor_id = %s AND s.activa = TRUE
+            ORDER BY s.creada_en DESC
+        """, (current_user.id,))
+        salas = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error en profesor_salas: {e}")
+        salas = []
+    
+    return render_template('profesor/salas.html', salas=salas)
+
+
+@app.route('/profesor/sala/nueva', methods=['GET', 'POST'])
+@login_required
+def profesor_sala_nueva():
+    """Crear nueva sala de clase"""
+    if not current_user.is_docente:
+        flash('Solo profesores pueden acceder', 'danger')
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        descripcion = request.form.get('descripcion')
+        
+        if not nombre:
+            flash('El nombre de la sala es obligatorio', 'danger')
+            return render_template('profesor/sala_form.html')
+        
+        # Generar código único de 6 caracteres
+        import random
+        import string
+        codigo = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            
+            cur.execute("""
+                INSERT INTO salas_clase (nombre, descripcion, codigo_acceso, profesor_id)
+                VALUES (%s, %s, %s, %s)
+            """, (nombre, descripcion, codigo, current_user.id))
+            
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            flash(f'✅ ¡Sala creada exitosamente! Código: {codigo}', 'success')
+            return redirect(url_for('profesor_salas'))
+        except Exception as e:
+            print(f"Error al crear sala: {e}")
+            flash('Error al crear la sala', 'danger')
+    
+    return render_template('profesor/sala_form.html')
+
+
+@app.route('/profesor/sala/<int:sala_id>')
+@login_required
+def profesor_sala_detalle(sala_id):
+    """Ver detalle de una sala con alumnos y progreso por lección"""
+    if not current_user.is_docente:
+        flash('Solo profesores pueden acceder', 'danger')
+        return redirect(url_for('index'))
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verificar que la sala pertenece al profesor
+        cur.execute("""
+            SELECT * FROM salas_clase 
+            WHERE id = %s AND profesor_id = %s AND activa = TRUE
+        """, (sala_id, current_user.id))
+        sala = cur.fetchone()
+        
+        if not sala:
+            flash('Sala no encontrada', 'danger')
+            return redirect(url_for('profesor_salas'))
+        
+        # ============================================
+        # 1. LISTA DE ALUMNOS CON SU PROGRESO
+        # ============================================
+        cur.execute("""
+            SELECT u.id, u.nombre, u.apellido_paterno, u.email, u.nivel, u.xp,
+                   sa.fecha_ingreso,
+                   (SELECT COUNT(*) FROM sala_progreso 
+                    WHERE sala_id = %s AND alumno_id = u.id AND completada = TRUE) as lecciones_completadas,
+                   (SELECT COUNT(*) FROM sala_progreso 
+                    WHERE sala_id = %s AND alumno_id = u.id) as total_intentos,
+                   (SELECT ROUND(AVG(puntaje)) FROM sala_progreso 
+                    WHERE sala_id = %s AND alumno_id = u.id AND completada = TRUE) as promedio_puntaje
+            FROM sala_alumnos sa
+            JOIN usuarios u ON sa.alumno_id = u.id
+            WHERE sa.sala_id = %s AND sa.activo = TRUE
+            ORDER BY u.nombre
+        """, (sala_id, sala_id, sala_id, sala_id))
+        alumnos = cur.fetchall()
+        
+        # ============================================
+        # 2. PROGRESO POR LECCIÓN
+        # ============================================
+        cur.execute("""
+            SELECT l.id, l.titulo, l.xp, l.icono,
+                   COUNT(DISTINCT sp.alumno_id) as alumnos_completaron,
+                   ROUND(AVG(sp.puntaje)) as promedio_puntaje_leccion
+            FROM lecciones l
+            LEFT JOIN sala_progreso sp ON l.id = sp.leccion_id 
+                AND sp.sala_id = %s AND sp.completada = TRUE
+            WHERE l.activo = TRUE
+            GROUP BY l.id
+            ORDER BY l.id
+        """, (sala_id,))
+        lecciones_progreso = cur.fetchall()
+        
+        # Calcular total de alumnos para porcentajes
+        total_alumnos = len(alumnos)
+        for leccion in lecciones_progreso:
+            if total_alumnos > 0:
+                leccion['porcentaje'] = round((leccion['alumnos_completaron'] / total_alumnos) * 100)
+            else:
+                leccion['porcentaje'] = 0
+        
+        # ============================================
+        # 3. ESTADÍSTICAS GENERALES
+        # ============================================
+        estadisticas = {
+            'total_alumnos': total_alumnos,
+            'total_lecciones': len(lecciones_progreso),
+            'lecciones_completadas_totales': sum(l['alumnos_completaron'] for l in lecciones_progreso),
+            'promedio_general': round(sum(l['promedio_puntaje_leccion'] or 0 for l in lecciones_progreso) / len(lecciones_progreso) if lecciones_progreso else 0)
+        }
+        
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error en sala_detalle: {e}")
+        flash('Error al cargar la sala', 'danger')
+        return redirect(url_for('profesor_salas'))
+    
+    return render_template('profesor/sala_detalle.html', 
+                         sala=sala, 
+                         alumnos=alumnos,
+                         lecciones_progreso=lecciones_progreso,
+                         estadisticas=estadisticas,
+                         total_alumnos=total_alumnos)
+
+
+@app.route('/profesor/sala/<int:sala_id>/alumno/<int:alumno_id>')
+@login_required
+def profesor_sala_alumno(sala_id, alumno_id):
+    """Ver progreso DETALLADO de un alumno específico"""
+    if not current_user.is_docente:
+        flash('Solo profesores pueden acceder', 'danger')
+        return redirect(url_for('index'))
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verificar sala del profesor
+        cur.execute("""
+            SELECT * FROM salas_clase 
+            WHERE id = %s AND profesor_id = %s AND activa = TRUE
+        """, (sala_id, current_user.id))
+        sala = cur.fetchone()
+        
+        if not sala:
+            flash('Sala no encontrada', 'danger')
+            return redirect(url_for('profesor_salas'))
+        
+        # Obtener datos del alumno
+        cur.execute("""
+            SELECT u.*, sa.fecha_ingreso
+            FROM usuarios u
+            JOIN sala_alumnos sa ON u.id = sa.alumno_id
+            WHERE u.id = %s AND sa.sala_id = %s AND sa.activo = TRUE
+        """, (alumno_id, sala_id))
+        alumno = cur.fetchone()
+        
+        if not alumno:
+            flash('Alumno no encontrado en esta sala', 'danger')
+            return redirect(url_for('profesor_sala_detalle', sala_id=sala_id))
+        
+        # Obtener progreso DETALLADO del alumno por lección
+        cur.execute("""
+            SELECT l.id, l.titulo, l.xp, l.icono,
+                   sp.completada, sp.puntaje, sp.fecha_completada,
+                   CASE WHEN sp.completada THEN 'Completada' ELSE 'Pendiente' END as estado
+            FROM lecciones l
+            LEFT JOIN sala_progreso sp ON l.id = sp.leccion_id 
+                AND sp.alumno_id = %s AND sp.sala_id = %s
+            WHERE l.activo = TRUE
+            ORDER BY l.id
+        """, (alumno_id, sala_id))
+        progreso = cur.fetchall()
+        
+        # Estadísticas del alumno
+        total_lecciones = len(progreso)
+        completadas = sum(1 for p in progreso if p['completada'])
+        promedio = round(sum(p['puntaje'] or 0 for p in progreso if p['completada']) / completadas if completadas > 0 else 0)
+        
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error: {e}")
+        flash('Error al cargar los datos', 'danger')
+        return redirect(url_for('profesor_sala_detalle', sala_id=sala_id))
+    
+    return render_template('profesor/sala_alumno.html', 
+                         sala=sala, 
+                         alumno=alumno,
+                         progreso=progreso,
+                         total_lecciones=total_lecciones,
+                         completadas=completadas,
+                         promedio=promedio)
+
+
+@app.route('/profesor/sala/<int:sala_id>/eliminar', methods=['POST'])
+@login_required
+def profesor_sala_eliminar(sala_id):
+    """Eliminar una sala (desactivar)"""
+    if not current_user.is_docente:
+        return jsonify({'error': 'No autorizado'}), 403
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("""
+            UPDATE salas_clase 
+            SET activa = FALSE 
+            WHERE id = %s AND profesor_id = %s
+        """, (sala_id, current_user.id))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sala/unirse', methods=['POST'])
+@login_required
+def sala_unirse():
+    """Unirse a una sala con código"""
+    data = request.json
+    codigo = data.get('codigo', '').strip().upper()
+    
+    if not codigo:
+        return jsonify({'error': 'Código requerido'}), 400
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Buscar sala por código
+        cur.execute("SELECT id FROM salas_clase WHERE codigo_acceso = %s AND activa = TRUE", (codigo,))
+        sala = cur.fetchone()
+        
+        if not sala:
+            return jsonify({'error': 'Código inválido o sala inactiva'}), 404
+        
+        # Agregar alumno a la sala
+        cur.execute("""
+            INSERT IGNORE INTO sala_alumnos (sala_id, alumno_id)
+            VALUES (%s, %s)
+        """, (sala['id'], current_user.id))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': '¡Te has unido a la sala!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+        
+# ========== RUTAS ADMIN - DASHBOARD ==========
+
+@app.route('/admin')
+@login_required
+def admin_dashboard():
+    if not current_user.is_admin:
+        flash('No tienes permisos', 'danger')
+        return redirect(url_for('index'))
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("SELECT COUNT(*) as total FROM usuarios WHERE activo = TRUE")
+        total_usuarios = cur.fetchone()['total']
+        
+        cur.execute("SELECT COUNT(*) as total FROM lecciones WHERE activo = TRUE")
+        total_lecciones = cur.fetchone()['total']
+        
+        cur.execute("SELECT COUNT(*) as total FROM campanas_simulacion WHERE activa = TRUE")
+        total_simulaciones = cur.fetchone()['total']
+        
+        cur.execute("SELECT COUNT(*) as total FROM autoridades WHERE activo = TRUE")
+        total_autoridades = cur.fetchone()['total']
+        
+        cur.close()
+        conn.close()
+        
+        estadisticas = [
+            {'nombre': 'Usuarios', 'valor': total_usuarios, 'icono': 'users', 'color': '#2563EB'},
+            {'nombre': 'Lecciones', 'valor': total_lecciones, 'icono': 'book', 'color': '#10B981'},
+            {'nombre': 'Simulaciones', 'valor': total_simulaciones, 'icono': 'gamepad', 'color': '#8B5CF6'},
+            {'nombre': 'Autoridades', 'valor': total_autoridades, 'icono': 'landmark', 'color': '#F59E0B'}
+        ]
+    except:
+        estadisticas = [
+            {'nombre': 'Usuarios', 'valor': 0, 'icono': 'users', 'color': '#2563EB'},
+            {'nombre': 'Lecciones', 'valor': 0, 'icono': 'book', 'color': '#10B981'},
+            {'nombre': 'Simulaciones', 'valor': 0, 'icono': 'gamepad', 'color': '#8B5CF6'},
+            {'nombre': 'Autoridades', 'valor': 0, 'icono': 'landmark', 'color': '#F59E0B'}
+        ]
+    
+    return render_template('admin/dashboard.html', estadisticas=estadisticas)
+
+# ========== RUTAS ADMIN - LECCIONES ==========
+
+@app.route('/admin/lecciones')
+@login_required
+def admin_lecciones():
+    if not current_user.is_admin:
+        flash('No tienes permisos', 'danger')
+        return redirect(url_for('index'))
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT l.*, ma.nombre as mundo_nombre 
+            FROM lecciones l
+            LEFT JOIN mundos_aprendizaje ma ON l.mundo_id = ma.id
+            ORDER BY l.id DESC
+        """)
+        lecciones = cur.fetchall()
+        cur.close()
+        conn.close()
+    except:
+        lecciones = []
+    
+    return render_template('admin/lecciones.html', lecciones=lecciones)
+
+@app.route('/admin/leccion/nueva', methods=['GET', 'POST'])
+@login_required
+def admin_leccion_nueva():
+    if not current_user.is_admin:
+        flash('No tienes permisos', 'danger')
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        # --- Obtener y validar campos de la lección ---
+        titulo = request.form.get('titulo', '').strip()
+        mundo_id = request.form.get('mundo_id', '').strip()
+        
+        if not titulo:
+            flash('El título de la lección es obligatorio', 'danger')
+            return render_template('admin/leccion_form.html', mundos=get_mundos(), leccion=None)
+        
+        if not mundo_id:
+            flash('Debes seleccionar un mundo', 'danger')
+            return render_template('admin/leccion_form.html', mundos=get_mundos(), leccion=None)
+        
+        try:
+            mundo_id = int(mundo_id)
+        except ValueError:
+            flash('ID de mundo inválido', 'danger')
+            return render_template('admin/leccion_form.html', mundos=get_mundos(), leccion=None)
+        
+        # --- Campos de la lección ---
+        situacion_inicial = request.form.get('situacion_inicial', '')
+        explicacion = request.form.get('explicacion', '')
+        ejemplo = request.form.get('ejemplo', '')
+        historia = request.form.get('historia', '')
+        curiosidad = request.form.get('curiosidad', '')
+        reflexion = request.form.get('reflexion', '')
+        xp = request.form.get('xp', 50)
+        icono = request.form.get('icono', 'book')
+        
+        try:
+            xp = int(xp)
+            if xp < 0:
+                xp = 50
+        except ValueError:
+            xp = 50
+        
+        # --- Obtener preguntas dinámicas ---
+        preguntas = request.form.getlist('preguntas[]')
+        opciones1 = request.form.getlist('opciones1[]')
+        opciones2 = request.form.getlist('opciones2[]')
+        opciones3 = request.form.getlist('opciones3[]')
+        respuestas_correctas = request.form.getlist('respuestas_correctas[]')
+        explicaciones = request.form.getlist('explicaciones[]')
+        
+        # Validar que haya al menos una pregunta
+        if not preguntas or len(preguntas) == 0 or not preguntas[0].strip():
+            flash('Debe haber al menos una pregunta.', 'danger')
+            return render_template('admin/leccion_form.html', mundos=get_mundos(), leccion=None)
+        
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            
+            # --- Insertar la lección ---
+            cur.execute("""
+                INSERT INTO lecciones (
+                    mundo_id, titulo, situacion_inicial, explicacion, 
+                    ejemplo, historia, curiosidad, reflexion, xp, icono, activo
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
+            """, (mundo_id, titulo, situacion_inicial, explicacion, 
+                  ejemplo, historia, curiosidad, reflexion, xp, icono))
+            
+            leccion_id = cur.lastrowid
+            
+            # --- Insertar cada pregunta ---
+            for i in range(len(preguntas)):
+                if not preguntas[i].strip():
+                    continue  # Saltar preguntas vacías
+                
+                pregunta = preguntas[i].strip()
+                
+                # Obtener opciones para esta pregunta
+                op1 = opciones1[i].strip() if i < len(opciones1) and opciones1[i].strip() else 'Opción 1'
+                op2 = opciones2[i].strip() if i < len(opciones2) and opciones2[i].strip() else 'Opción 2'
+                op3 = opciones3[i].strip() if i < len(opciones3) and opciones3[i].strip() else 'Opción 3'
+                
+                # Respuesta correcta (0, 1, 2)
+                try:
+                    respuesta_correcta = int(respuestas_correctas[i]) if i < len(respuestas_correctas) else 0
+                    if respuesta_correcta not in [0, 1, 2]:
+                        respuesta_correcta = 0
+                except (ValueError, IndexError):
+                    respuesta_correcta = 0
+                
+                explicacion_act = explicaciones[i].strip() if i < len(explicaciones) and explicaciones[i].strip() else ''
+                
+                # Construir JSON
+                opciones_json = json.dumps([op1, op2, op3])
+                respuesta_json = json.dumps(respuesta_correcta)
+                
+                cur.execute("""
+                    INSERT INTO actividades_leccion (
+                        leccion_id, tipo, pregunta, opciones, respuesta_correcta, explicacion, orden
+                    ) VALUES (%s, 'alternativas', %s, %s, %s, %s, %s)
+                """, (
+                    leccion_id,
+                    pregunta,
+                    opciones_json,
+                    respuesta_json,
+                    explicacion_act,
+                    i  # orden
+                ))
+            
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            flash(f'¡Lección creada exitosamente con {len(preguntas)} pregunta(s)!', 'success')
+            return redirect(url_for('admin_lecciones'))
+            
+        except Exception as e:
+            print(f"❌ ERROR al crear lección: {e}")
+            import traceback
+            traceback.print_exc()
+            flash(f'Error al crear la lección: {str(e)}', 'danger')
+    
+    # --- GET: mostrar formulario ---
+    mundos = get_mundos()
+    return render_template('admin/leccion_form.html', mundos=mundos, leccion=None)
+
+def get_mundos():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM mundos_aprendizaje ORDER BY nombre")
+        mundos = cur.fetchall()
+        cur.close()
+        conn.close()
+        return mundos
+    except Exception as e:
+        print(f"Error obteniendo mundos: {e}")
+        return []
+
+# Función auxiliar para obtener mundos
+def get_mundos():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM mundos_aprendizaje ORDER BY nombre")
+        mundos = cur.fetchall()
+        cur.close()
+        conn.close()
+        return mundos
+    except Exception as e:
+        print(f"Error obteniendo mundos: {e}")
+        return []
+
+@app.route('/admin/leccion/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
+def admin_leccion_editar(id):
+    if not current_user.is_admin:
+        flash('No tienes permisos', 'danger')
+        return redirect(url_for('index'))
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        if request.method == 'POST':
+            titulo = request.form.get('titulo', '').strip()
+            mundo_id = request.form.get('mundo_id', '').strip()
+            
+            if not titulo or not mundo_id:
+                flash('Título y mundo son obligatorios', 'danger')
+                return redirect(url_for('admin_leccion_editar', id=id))
+            
+            mundo_id = int(mundo_id)
+            situacion_inicial = request.form.get('situacion_inicial', '')
+            explicacion = request.form.get('explicacion', '')
+            ejemplo = request.form.get('ejemplo', '')
+            historia = request.form.get('historia', '')
+            curiosidad = request.form.get('curiosidad', '')
+            reflexion = request.form.get('reflexion', '')
+            xp = request.form.get('xp', 50)
+            icono = request.form.get('icono', 'book')
+            activo = 1 if request.form.get('activo') else 0
+            
+            try:
+                xp = int(xp)
+                if xp < 0:
+                    xp = 50
+            except ValueError:
+                xp = 50
+            
+            # --- Actualizar lección ---
+            cur.execute("""
+                UPDATE lecciones 
+                SET mundo_id = %s, titulo = %s, situacion_inicial = %s, explicacion = %s, 
+                    ejemplo = %s, historia = %s, curiosidad = %s, reflexion = %s, 
+                    xp = %s, icono = %s, activo = %s
+                WHERE id = %s
+            """, (mundo_id, titulo, situacion_inicial, explicacion, ejemplo, historia, 
+                  curiosidad, reflexion, xp, icono, activo, id))
+            
+            # --- Eliminar preguntas antiguas ---
+            cur.execute("DELETE FROM actividades_leccion WHERE leccion_id = %s", (id,))
+            
+            # --- Insertar preguntas nuevas ---
+            preguntas = request.form.getlist('preguntas[]')
+            opciones1 = request.form.getlist('opciones1[]')
+            opciones2 = request.form.getlist('opciones2[]')
+            opciones3 = request.form.getlist('opciones3[]')
+            respuestas_correctas = request.form.getlist('respuestas_correctas[]')
+            explicaciones = request.form.getlist('explicaciones[]')
+            
+            for i in range(len(preguntas)):
+                if not preguntas[i].strip():
+                    continue
+                
+                pregunta = preguntas[i].strip()
+                op1 = opciones1[i].strip() if i < len(opciones1) and opciones1[i].strip() else 'Opción 1'
+                op2 = opciones2[i].strip() if i < len(opciones2) and opciones2[i].strip() else 'Opción 2'
+                op3 = opciones3[i].strip() if i < len(opciones3) and opciones3[i].strip() else 'Opción 3'
+                
+                try:
+                    respuesta_correcta = int(respuestas_correctas[i]) if i < len(respuestas_correctas) else 0
+                    if respuesta_correcta not in [0, 1, 2]:
+                        respuesta_correcta = 0
+                except (ValueError, IndexError):
+                    respuesta_correcta = 0
+                
+                explicacion_act = explicaciones[i].strip() if i < len(explicaciones) and explicaciones[i].strip() else ''
+                
+                opciones_json = json.dumps([op1, op2, op3])
+                respuesta_json = json.dumps(respuesta_correcta)
+                
+                cur.execute("""
+                    INSERT INTO actividades_leccion (
+                        leccion_id, tipo, pregunta, opciones, respuesta_correcta, explicacion, orden
+                    ) VALUES (%s, 'alternativas', %s, %s, %s, %s, %s)
+                """, (id, pregunta, opciones_json, respuesta_json, explicacion_act, i))
+            
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            flash('¡Lección actualizada exitosamente!', 'success')
+            return redirect(url_for('admin_lecciones'))
+        
+        # --- GET: cargar datos ---
+        cur.execute("SELECT * FROM lecciones WHERE id = %s", (id,))
+        leccion = cur.fetchone()
+        
+        # Cargar preguntas
+        cur.execute("SELECT * FROM actividades_leccion WHERE leccion_id = %s ORDER BY orden", (id,))
+        actividades = cur.fetchall()
+        
+        # Parsear JSON
+        for act in actividades:
+            if act.get('opciones'):
+                act['opciones'] = json.loads(act['opciones']) if isinstance(act['opciones'], str) else act['opciones']
+            if act.get('respuesta_correcta'):
+                act['respuesta_correcta'] = json.loads(act['respuesta_correcta']) if isinstance(act['respuesta_correcta'], str) else act['respuesta_correcta']
+        
+        leccion['actividades'] = actividades
+        
+        cur.execute("SELECT * FROM mundos_aprendizaje ORDER BY nombre")
+        mundos = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+        
+        return render_template('admin/leccion_form.html', leccion=leccion, mundos=mundos)
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        flash('Error al editar la lección', 'danger')
+        return redirect(url_for('admin_lecciones'))
+
+@app.route('/admin/leccion/eliminar/<int:id>', methods=['POST'])
+@login_required
+def admin_leccion_eliminar(id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'No autorizado'}), 403
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM lecciones WHERE id = %s", (id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ========== RUTAS ADMIN - SIMULACIONES (CON ESCENAS) ==========
 
 @app.route('/admin/simulaciones')
 @login_required
@@ -2624,6 +2879,7 @@ def admin_carta_evento_eliminar(id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 # ============================================
 # RUTAS ADMIN - RUTAS ALTERNATIVAS
 # ============================================
@@ -2650,6 +2906,7 @@ def admin_rutas_alternativas():
         rutas = []
     
     return render_template('admin/rutas_alternativas.html', rutas=rutas)
+
 
 @app.route('/admin/ruta_alternativa/nueva', methods=['GET', 'POST'])
 @login_required
@@ -2760,6 +3017,7 @@ def admin_ruta_alternativa_nueva():
     
     return render_template('admin/ruta_alternativa_form.html', cartas=cartas, ruta=None)
 
+
 @app.route('/admin/ruta_alternativa/editar/<int:id>', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -2865,6 +3123,7 @@ def admin_ruta_alternativa_editar(id):
         flash('Error al editar la ruta alternativa', 'danger')
         return redirect(url_for('admin_rutas_alternativas'))
 
+
 @app.route('/admin/ruta_alternativa/eliminar/<int:id>', methods=['POST'])
 @login_required
 @admin_required
@@ -2910,6 +3169,7 @@ def admin_usuarios():
     
     return render_template('admin/usuarios.html', usuarios=usuarios)
 
+
 @app.route('/admin/usuario/cambiar_tipo/<int:id>', methods=['POST'])
 @login_required
 def admin_usuario_cambiar_tipo(id):
@@ -2943,11 +3203,13 @@ def admin_usuario_cambiar_tipo(id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/admin/usuario/cambiar_rol/<int:id>', methods=['POST'])
 @login_required
 def admin_usuario_cambiar_rol(id):
     """Alias para cambiar_tipo (compatibilidad con frontend)"""
     return admin_usuario_cambiar_tipo(id)
+
 
 @app.route('/admin/usuario/bloquear/<int:id>', methods=['POST'])
 @login_required
@@ -2974,6 +3236,7 @@ def admin_usuario_bloquear(id):
         return jsonify({'success': True, 'activo': nuevo_estado})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/admin/usuario/eliminar/<int:id>', methods=['POST'])
 @login_required
@@ -3061,6 +3324,7 @@ def admin_tarea_nueva():
             flash(f'Error: {e}', 'danger')
     
     return render_template('admin/tarea_form.html', tarea=None)
+
 
 @app.route('/admin/tarea/editar/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -3266,7 +3530,7 @@ def admin_noticia_eliminar(id):
 
 @app.route('/admin/autoridades')
 @login_required
-@admin_required
+@admin_required  # 👈 AGREGAR ESTO
 def admin_autoridades():
     if not current_user.is_admin_or_super:
         flash('No tienes permisos', 'danger')
@@ -3289,9 +3553,10 @@ def admin_autoridades():
     
     return render_template('admin/autoridades.html', autoridades=autoridades)
 
+
 @app.route('/admin/autoridad/nueva', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@admin_required  # 👈 AGREGAR ESTO
 def admin_autoridad_nueva():
     if not current_user.is_admin_or_super:
         flash('No tienes permisos', 'danger')
@@ -3338,9 +3603,10 @@ def admin_autoridad_nueva():
     
     return render_template('admin/autoridad_form.html', autoridad=None, tipos=tipos)
 
+
 @app.route('/admin/autoridad/editar/<int:id>', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@admin_required  # 👈 AGREGAR ESTO
 def admin_autoridad_editar(id):
     if not current_user.is_admin_or_super:
         flash('No tienes permisos', 'danger')
@@ -3389,9 +3655,11 @@ def admin_autoridad_editar(id):
         flash('Error al editar la autoridad', 'danger')
         return redirect(url_for('admin_autoridades'))
 
+
+# 👇 ESTA RUTA DEBE ESTAR UNA SOLA VEZ (ELIMINA LA DUPLICADA)
 @app.route('/admin/autoridad/eliminar/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@admin_required  # 👈 AGREGAR ESTO
 def admin_autoridad_eliminar(id):
     if not current_user.is_admin_or_super:
         return jsonify({'error': 'No autorizado'}), 403
@@ -3407,9 +3675,11 @@ def admin_autoridad_eliminar(id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# 👇 RUTA PARA SUBIR FOTO DE AUTORIDAD (YA LA TIENES, PERO CONFIRMA)
 @app.route('/admin/autoridad/<int:id>/subir_foto', methods=['POST'])
 @login_required
-@admin_required
+@admin_required  # 👈 AGREGAR ESTO
 def admin_autoridad_subir_foto(id):
     if not current_user.is_admin_or_super:
         return jsonify({'error': 'No autorizado'}), 403
@@ -3453,9 +3723,11 @@ def admin_autoridad_subir_foto(id):
         print(f"Error: {e}")
         return jsonify({'error': str(e)}), 500
 
+
+# 👇 RUTA PARA ELIMINAR FOTO DE AUTORIDAD (YA LA TIENES, PERO CONFIRMA)
 @app.route('/admin/autoridad/<int:id>/eliminar_foto', methods=['POST'])
 @login_required
-@admin_required
+@admin_required  # 👈 AGREGAR ESTO
 def admin_autoridad_eliminar_foto(id):
     if not current_user.is_admin_or_super:
         return jsonify({'error': 'No autorizado'}), 403
@@ -3511,6 +3783,7 @@ def admin_propuestas():
         flash(f'Error al cargar propuestas: {e}', 'danger')
         return redirect(url_for('admin_dashboard'))
 
+
 @app.route('/admin/propuesta/nueva', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -3559,6 +3832,7 @@ def admin_propuesta_nueva():
         autoridades = []
 
     return render_template('admin/propuesta_form.html', autoridades=autoridades, propuesta=None)
+
 
 @app.route('/admin/propuesta/editar/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -3609,6 +3883,7 @@ def admin_propuesta_editar(id):
         flash(f'Error al editar: {e}', 'danger')
         return redirect(url_for('admin_propuestas'))
 
+
 @app.route('/admin/propuesta/eliminar/<int:id>', methods=['POST'])
 @login_required
 @admin_required
@@ -3624,6 +3899,7 @@ def admin_propuesta_eliminar(id):
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 # ============================================
 # RUTAS PÚBLICAS - PROPUESTAS
@@ -3651,6 +3927,7 @@ def detalle_propuesta(id):
     except Exception as e:
         flash(f'Error al cargar la propuesta: {e}', 'danger')
         return redirect(url_for('estado'))
+
 
 # ============================================
 # MODIFICAR RUTA EXISTENTE: perfil_autoridad
@@ -3795,8 +4072,6 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     return render_template('500.html'), 500
-
-# ========== PUNTO DE ENTRADA ==========
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
