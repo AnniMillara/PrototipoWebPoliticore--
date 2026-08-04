@@ -24,16 +24,12 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
 
+import sqlite3
+
 def get_db_connection():
-    return pymysql.connect(
-        host=app.config['MYSQL_HOST'],
-        user=app.config['MYSQL_USER'],
-        password=app.config['MYSQL_PASSWORD'],
-        database=app.config['MYSQL_DB'],
-        cursorclass=pymysql.cursors.DictCursor,
-        autocommit=True,
-        ssl={'ca': '/etc/ssl/certs/ca-certificates.crt'}
-    )
+    conn = sqlite3.connect('instance/politicore.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
 class User(UserMixin):
     def __init__(self, user_data):
