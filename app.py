@@ -4,38 +4,38 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 import os
 import json
-import sqlite3
-from datetime import datetime, date
+from datetime import datetime
+import pymysql
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-12345')
 
-# ============================================
-# CONFIGURACIÓN SQLITE (ya no usa MySQL)
-# ============================================
-# Las variables de entorno de MySQL se ignoran.
-# La base de datos estará en instance/politicore.db
-app.config['SQLITE_DB'] = os.path.join(app.instance_path, 'politicore.db')
-
-# Asegurar que la carpeta instance existe
-try:
-    os.makedirs(app.instance_path, exist_ok=True)
-except:
-    pass
-
-def get_db_connection():
-    """Conecta a la base de datos SQLite"""
-    conn = sqlite3.connect(app.config['SQLITE_DB'])
-    conn.row_factory = sqlite3.Row  # Permite acceder por nombre de columna
-    return conn
+# Configuración MySQL
+app.config['MYSQL_HOST'] = os.getenv('DB_HOST', 'localhost')
+app.config['MYSQL_USER'] = os.getenv('DB_USER', 'root')
+app.config['MYSQL_PASSWORD'] = os.getenv('DB_PASSWORD', 'root')
+app.config['MYSQL_DB'] = os.getenv('DB_NAME', 'politicore')
+app.config['MYSQL_PORT'] = int(os.getenv('DB_PORT', 3306))
 
 # Configuración de Login
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
+
+def get_db_connection():
+    return pymysql.connect(
+        host=app.config['MYSQL_HOST'],
+        user=app.config['MYSQL_USER'],
+        password=app.config['MYSQL_PASSWORD'],
+        database=app.config['MYSQL_DB'],
+        port=app.config['MYSQL_PORT'],
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=True,
+        ssl={'ca': '/etc/ssl/certs/ca-certificates.crt'}
+    )
 
 class User(UserMixin):
     def __init__(self, user_data):
@@ -75,7 +75,7 @@ class User(UserMixin):
             return False
         if self.fecha_expiracion:
             from datetime import date
-            return date.today() <= date.fromisoformat(self.fecha_expiracion) if isinstance(self.fecha_expiracion, str) else date.today() <= self.fecha_expiracion
+            return date.today() <= self.fecha_expiracion
         return True
 
 from functools import wraps
@@ -124,49 +124,41 @@ def registro_profesor():
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         plan = request.form.get('plan', 'mensual')
-        
         if password != confirm_password:
             flash('Las contraseñas no coinciden', 'danger')
             return render_template('registro_profesor.html')
-        
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("SELECT id FROM usuarios WHERE email = ?", (email,))
+            cur.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
             if cur.fetchone():
                 flash('Este email ya está registrado', 'danger')
                 cur.close()
                 conn.close()
                 return render_template('registro_profesor.html')
-            
             if plan == 'anual':
-                fecha_expiracion = "date('now', '+365 days')"
+                fecha_expiracion = "DATE_ADD(CURDATE(), INTERVAL 365 DAY)"
                 precio = 11000
             else:
-                fecha_expiracion = "date('now', '+30 days')"
+                fecha_expiracion = "DATE_ADD(CURDATE(), INTERVAL 30 DAY)"
                 precio = 1000
-            
             cur.execute(f"""
                 INSERT INTO usuarios (
                     tipo_usuario_id, nombre, apellido_paterno, email, password,
                     nivel, xp, activo, es_premium, fecha_suscripcion, fecha_expiracion, plan
                 ) VALUES (
-                    3, ?, ?, ?, ?,
-                    1, 0, 1, 1, date('now'), {fecha_expiracion}, ?
+                    3, %s, %s, %s, %s,
+                    1, 0, 1, 1, CURDATE(), {fecha_expiracion}, %s
                 )
             """, (nombre, '', email, password, plan))
-            
             conn.commit()
             cur.close()
             conn.close()
-            
             flash(f'✅ ¡Registro exitoso! Premium activado por {precio} CLP', 'success')
             return redirect(url_for('login'))
-            
         except Exception as e:
             print(f"Error en registro: {e}")
             flash('Error al registrar usuario', 'danger')
-    
     return render_template('registro_profesor.html')
 
 @app.route('/api/simular_pago', methods=['POST'])
@@ -193,11 +185,11 @@ def activar_premium():
         cur = conn.cursor()
         cur.execute("""
             UPDATE usuarios
-            SET es_premium = 1,
-                fecha_suscripcion = date('now'),
-                fecha_expiracion = date('now', '+30 days'),
+            SET es_premium = TRUE,
+                fecha_suscripcion = CURDATE(),
+                fecha_expiracion = DATE_ADD(CURDATE(), INTERVAL 30 DAY),
                 plan = 'profesional'
-            WHERE id = ?
+            WHERE id = %s
         """, (current_user.id,))
         conn.commit()
         cur.close()
@@ -211,7 +203,7 @@ def load_user(user_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM usuarios WHERE id = ? AND activo = 1", (user_id,))
+        cur.execute("SELECT * FROM usuarios WHERE id = %s AND activo = TRUE", (user_id,))
         user_data = cur.fetchone()
         cur.close()
         conn.close()
@@ -260,7 +252,6 @@ def index():
                 'icono': 'shield-alt'
             }
         ]
-    
     proximas_funciones = [
         {'nombre': 'Elecciones en vivo', 'icono': 'vote-yea'},
         {'nombre': 'Comparador de candidatos', 'icono': 'balance-scale'},
@@ -268,7 +259,6 @@ def index():
         {'nombre': 'Panel de noticias', 'icono': 'shield-alt'},
         {'nombre': 'Panel para colegios', 'icono': 'school'}
     ]
-    
     return render_template('index.html', 
                          noticias_destacadas=noticias[:3],
                          proximas_funciones=proximas_funciones)
@@ -278,15 +268,13 @@ def login():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
-        
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("SELECT * FROM usuarios WHERE email = ? AND activo = 1", (email,))
+            cur.execute("SELECT * FROM usuarios WHERE email = %s AND activo = TRUE", (email,))
             user_data = cur.fetchone()
             cur.close()
             conn.close()
-            
             if user_data:
                 if password == user_data['password']:
                     user = User(user_data)
@@ -302,7 +290,6 @@ def login():
         except Exception as e:
             print(f"Error en login: {e}")
             flash('Error al iniciar sesión', 'danger')
-    
     return render_template('login.html')
 
 @app.route('/logout')
@@ -321,63 +308,51 @@ def registro():
         confirm_password = request.form.get('confirm_password', '')
         plan = request.form.get('plan', 'gratis')
         tipo_usuario = request.form.get('tipo_usuario', 4)
-        
         if not nombre or not email or not password or not confirm_password:
             flash('Todos los campos son obligatorios', 'danger')
             return render_template('registro.html')
-        
         if password != confirm_password:
             flash('Las contraseñas no coinciden', 'danger')
             return render_template('registro.html')
-        
         if len(password) < 8:
             flash('La contraseña debe tener al menos 8 caracteres', 'danger')
             return render_template('registro.html')
-        
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("SELECT id FROM usuarios WHERE email = ?", (email,))
+            cur.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
             if cur.fetchone():
                 flash('Este email ya está registrado', 'danger')
                 cur.close()
                 conn.close()
                 return render_template('registro.html')
-            
             es_premium = 1 if plan in ['mensual', 'anual'] else 0
-            
             if plan == 'anual':
-                fecha_expiracion = "date('now', '+365 days')"
+                fecha_expiracion = "DATE_ADD(CURDATE(), INTERVAL 365 DAY)"
             elif plan == 'mensual':
-                fecha_expiracion = "date('now', '+30 days')"
+                fecha_expiracion = "DATE_ADD(CURDATE(), INTERVAL 30 DAY)"
             else:
                 fecha_expiracion = "NULL"
-            
             cur.execute(f"""
                 INSERT INTO usuarios (
                     tipo_usuario_id, nombre, apellido_paterno, email, password,
                     nivel, xp, activo, es_premium, fecha_suscripcion, fecha_expiracion, plan
                 ) VALUES (
-                    ?, ?, ?, ?, ?,
-                    1, 0, 1, ?, date('now'), {fecha_expiracion}, ?
+                    %s, %s, %s, %s, %s,
+                    1, 0, 1, %s, CURDATE(), {fecha_expiracion}, %s
                 )
             """, (tipo_usuario, nombre, '', email, password, es_premium, plan))
-            
             conn.commit()
             cur.close()
             conn.close()
-            
             if plan == 'gratis':
                 flash('¡Registro exitoso! Comienza a aprender.', 'success')
             else:
                 flash(f'✅ ¡Registro exitoso! Premium activado por ${"11.000" if plan == "anual" else "1.000"} CLP (Demo)', 'success')
-            
             return redirect(url_for('login'))
-            
         except Exception as e:
             print(f"Error en registro: {e}")
             flash('Error al registrar usuario. Intenta nuevamente.', 'danger')
-    
     return render_template('registro.html')
 
 # ============================================
@@ -390,58 +365,46 @@ def estudiante_unirse():
     if current_user.is_docente:
         flash('Los profesores no pueden unirse a clases como estudiantes', 'warning')
         return redirect(url_for('profesor_salas'))
-    
     if request.method == 'POST':
         codigo = request.form.get('codigo', '').strip().upper()
-        
         if not codigo:
             flash('Ingresa un código de clase', 'danger')
             return render_template('estudiante/unirse.html')
-        
         try:
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute("""
                 SELECT id, nombre, profesor_id
                 FROM salas_clase
-                WHERE codigo_acceso = ? AND activa = 1
+                WHERE codigo_acceso = %s AND activa = TRUE
             """, (codigo,))
             sala = cur.fetchone()
-            
             if not sala:
                 flash('❌ Código inválido. Verifica con tu profesor.', 'danger')
                 cur.close()
                 conn.close()
                 return render_template('estudiante/unirse.html')
-            
             cur.execute("""
                 SELECT id FROM sala_alumnos
-                WHERE sala_id = ? AND alumno_id = ? AND activo = 1
+                WHERE sala_id = %s AND alumno_id = %s AND activo = TRUE
             """, (sala['id'], current_user.id))
             ya_inscrito = cur.fetchone()
-            
             if ya_inscrito:
                 flash('✅ Ya estás en esta clase', 'info')
                 return redirect(url_for('estudiante_mis_clases'))
-            
             cur.execute("""
                 INSERT INTO sala_alumnos (sala_id, alumno_id)
-                VALUES (?, ?)
+                VALUES (%s, %s)
             """, (sala['id'], current_user.id))
-            
             conn.commit()
             cur.close()
             conn.close()
-            
             flash(f'✅ ¡Te has unido a la clase "{sala["nombre"]}"!', 'success')
             return redirect(url_for('estudiante_mis_clases'))
-            
         except Exception as e:
             print(f"Error al unirse: {e}")
             flash('Error al unirte a la clase', 'danger')
-    
     return render_template('estudiante/unirse.html')
-
 
 @app.route('/estudiante/mis-clases')
 @login_required
@@ -449,7 +412,6 @@ def estudiante_mis_clases():
     if current_user.is_docente:
         flash('Los profesores usan "Mis Salas de Clase"', 'warning')
         return redirect(url_for('profesor_salas'))
-    
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -458,11 +420,11 @@ def estudiante_mis_clases():
                    u.nombre as profesor_nombre,
                    sa.fecha_ingreso,
                    (SELECT COUNT(*) FROM sala_progreso
-                    WHERE sala_id = s.id AND alumno_id = ? AND completada = 1) as lecciones_completadas
+                    WHERE sala_id = s.id AND alumno_id = %s AND completada = TRUE) as lecciones_completadas
             FROM sala_alumnos sa
             JOIN salas_clase s ON sa.sala_id = s.id
             JOIN usuarios u ON s.profesor_id = u.id
-            WHERE sa.alumno_id = ? AND sa.activo = 1
+            WHERE sa.alumno_id = %s AND sa.activo = TRUE
             ORDER BY sa.fecha_ingreso DESC
         """, (current_user.id, current_user.id))
         clases = cur.fetchall()
@@ -471,9 +433,7 @@ def estudiante_mis_clases():
     except Exception as e:
         print(f"Error: {e}")
         clases = []
-    
     return render_template('estudiante/mis_clases.html', clases=clases)
-
 
 @app.route('/estudiante/clase/<int:sala_id>')
 @login_required
@@ -481,7 +441,6 @@ def estudiante_clase_detalle(sala_id):
     if current_user.is_docente:
         flash('Los profesores no pueden ver esto como estudiantes', 'warning')
         return redirect(url_for('profesor_salas'))
-    
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -490,35 +449,29 @@ def estudiante_clase_detalle(sala_id):
             FROM salas_clase s
             JOIN sala_alumnos sa ON s.id = sa.sala_id
             JOIN usuarios u ON s.profesor_id = u.id
-            WHERE s.id = ? AND sa.alumno_id = ? AND sa.activo = 1
+            WHERE s.id = %s AND sa.alumno_id = %s AND sa.activo = TRUE
         """, (sala_id, current_user.id))
         sala = cur.fetchone()
-        
         if not sala:
             flash('No tienes acceso a esta clase', 'danger')
             return redirect(url_for('estudiante_mis_clases'))
-        
         cur.execute("""
             SELECT l.id, l.titulo, l.xp,
                    sp.completada, sp.puntaje, sp.fecha_completada
             FROM lecciones l
             LEFT JOIN sala_progreso sp ON l.id = sp.leccion_id
-                AND sp.alumno_id = ? AND sp.sala_id = ?
-            WHERE l.activo = 1
+                AND sp.alumno_id = %s AND sp.sala_id = %s
+            WHERE l.activo = TRUE
             ORDER BY l.id
         """, (current_user.id, sala_id))
         progreso = cur.fetchall()
-        
         cur.close()
         conn.close()
     except Exception as e:
         print(f"Error: {e}")
         flash('Error al cargar la clase', 'danger')
         return redirect(url_for('estudiante_mis_clases'))
-    
-    return render_template('estudiante/clase_detalle.html', 
-                         sala=sala, 
-                         progreso=progreso)
+    return render_template('estudiante/clase_detalle.html', sala=sala, progreso=progreso)
 
 # ========== RUTAS DE LECCIONES ==========
 
@@ -529,7 +482,6 @@ def lecciones():
         cur = conn.cursor()
         cur.execute("SELECT * FROM mundos_aprendizaje ORDER BY orden")
         mundos = cur.fetchall()
-        
         for mundo in mundos:
             cur.execute("""
                 SELECT l.*,
@@ -542,20 +494,16 @@ def lecciones():
                            ELSE 0
                        END as progreso
                 FROM lecciones l
-                LEFT JOIN progreso_lecciones pl ON l.id = pl.leccion_id AND pl.usuario_id = ?
-                WHERE l.mundo_id = ? AND l.activo = 1
+                LEFT JOIN progreso_lecciones pl ON l.id = pl.leccion_id AND pl.usuario_id = %s
+                WHERE l.mundo_id = %s AND l.activo = TRUE
                 ORDER BY l.orden
             """, (current_user.id if current_user.is_authenticated else 0, mundo['id']))
-            
             lecciones_data = cur.fetchall()
-            
             if not current_user.is_authenticated:
                 for leccion in lecciones_data:
                     leccion['estado'] = 'bloqueada'
                     leccion['progreso'] = 0
-            
             mundo['lecciones'] = lecciones_data
-            
         cur.close()
         conn.close()
     except Exception as e:
@@ -577,7 +525,6 @@ def lecciones():
                 ]
             }
         ]
-    
     return render_template('lecciones/index.html', mundos=mundos)
 
 @app.route('/leccion/<int:id>')
@@ -589,14 +536,12 @@ def detalle_leccion(id):
             SELECT l.*, ma.nombre as mundo
             FROM lecciones l
             LEFT JOIN mundos_aprendizaje ma ON l.mundo_id = ma.id
-            WHERE l.id = ? AND l.activo = 1
+            WHERE l.id = %s AND l.activo = TRUE
         """, (id,))
         leccion = cur.fetchone()
-        
         if leccion:
-            cur.execute("SELECT * FROM actividades_leccion WHERE leccion_id = ? ORDER BY orden", (id,))
+            cur.execute("SELECT * FROM actividades_leccion WHERE leccion_id = %s ORDER BY orden", (id,))
             actividades = cur.fetchall()
-            
             if actividades:
                 leccion['actividades'] = []
                 for act in actividades:
@@ -619,7 +564,6 @@ def detalle_leccion(id):
                     'respuesta_correcta': 0,
                     'explicacion': 'Explicación de la respuesta correcta.'
                 }
-        
         cur.close()
         conn.close()
     except Exception as e:
@@ -653,7 +597,6 @@ def detalle_leccion(id):
                 'explicacion': 'La democracia es un sistema donde los ciudadanos eligen a sus representantes mediante votaciones.'
             }
         }
-    
     return render_template('lecciones/detalle.html', leccion=leccion)
 
 @app.route('/api/completar_leccion', methods=['POST'])
@@ -662,69 +605,62 @@ def completar_leccion():
     data = request.json
     leccion_id = data.get('leccion_id')
     sala_id = data.get('sala_id')
-    
     if not leccion_id:
         return jsonify({'success': False, 'error': 'ID de lección requerido'})
-    
     try:
         sala_id_int = int(sala_id) if sala_id else None
     except (ValueError, TypeError):
         sala_id_int = None
-    
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        
-        cur.execute("SELECT * FROM progreso_lecciones WHERE usuario_id = ? AND leccion_id = ?", 
+        cur.execute("SELECT * FROM progreso_lecciones WHERE usuario_id = %s AND leccion_id = %s", 
                    (current_user.id, leccion_id))
         existente = cur.fetchone()
-        
-        cur.execute("SELECT xp FROM lecciones WHERE id = ?", (leccion_id,))
+        cur.execute("SELECT xp FROM lecciones WHERE id = %s", (leccion_id,))
         leccion = cur.fetchone()
         xp_ganado = leccion['xp'] if leccion else 50
-        
         if existente and existente['completada']:
             pass
         else:
             if existente:
                 cur.execute("""
                     UPDATE progreso_lecciones
-                    SET completada = 1,
-                        fecha_completada = datetime('now'),
+                    SET completada = TRUE,
+                        fecha_completada = NOW(),
                         puntaje = 100,
                         intentos = intentos + 1
-                    WHERE usuario_id = ? AND leccion_id = ?
+                    WHERE usuario_id = %s AND leccion_id = %s
                 """, (current_user.id, leccion_id))
             else:
                 cur.execute("""
                     INSERT INTO progreso_lecciones (usuario_id, leccion_id, completada, puntaje, fecha_completada)
-                    VALUES (?, ?, 1, 100, datetime('now'))
+                    VALUES (%s, %s, TRUE, 100, NOW())
                 """, (current_user.id, leccion_id))
-            
             cur.execute("""
                 UPDATE usuarios
-                SET xp = xp + ?
-                WHERE id = ?
+                SET xp = xp + %s
+                WHERE id = %s
             """, (xp_ganado, current_user.id))
-        
         if sala_id_int is not None:
             cur.execute("""
                 SELECT id FROM sala_alumnos
-                WHERE sala_id = ? AND alumno_id = ? AND activo = 1
+                WHERE sala_id = %s AND alumno_id = %s AND activo = TRUE
             """, (sala_id_int, current_user.id))
             if cur.fetchone():
                 cur.execute("""
                     INSERT INTO sala_progreso (sala_id, alumno_id, leccion_id, completada, fecha_completada, puntaje)
-                    VALUES (?, ?, ?, 1, datetime('now'), 100)
-                    ON CONFLICT(sala_id, alumno_id, leccion_id) DO UPDATE SET
-                    completada = 1,
-                    fecha_completada = datetime('now'),
+                    VALUES (%s, %s, %s, TRUE, NOW(), 100)
+                    ON DUPLICATE KEY UPDATE
+                    completada = TRUE,
+                    fecha_completada = NOW(),
                     puntaje = 100
                 """, (sala_id_int, current_user.id, leccion_id))
+                print(f"✅ Progreso guardado en sala {sala_id_int}")
         else:
             cur.execute("""
                 SELECT sala_id FROM sala_alumnos
-                WHERE alumno_id = ? AND activo = 1
+                WHERE alumno_id = %s AND activo = TRUE
             """, (current_user.id,))
             salas = cur.fetchall()
             if salas:
@@ -732,19 +668,19 @@ def completar_leccion():
                     sala_id_alumno = row['sala_id']
                     cur.execute("""
                         INSERT INTO sala_progreso (sala_id, alumno_id, leccion_id, completada, fecha_completada, puntaje)
-                        VALUES (?, ?, ?, 1, datetime('now'), 100)
-                        ON CONFLICT(sala_id, alumno_id, leccion_id) DO UPDATE SET
-                        completada = 1,
-                        fecha_completada = datetime('now'),
+                        VALUES (%s, %s, %s, TRUE, NOW(), 100)
+                        ON DUPLICATE KEY UPDATE
+                        completada = TRUE,
+                        fecha_completada = NOW(),
                         puntaje = 100
                     """, (sala_id_alumno, current_user.id, leccion_id))
-        
+                    print(f"✅ Progreso guardado en sala {sala_id_alumno}")
+            else:
+                print("ℹ️ Alumno no está en ninguna sala")
         conn.commit()
         cur.close()
         conn.close()
-        
         return jsonify({'success': True, 'xp': xp_ganado})
-        
     except Exception as e:
         print(f"❌ Error completar lección: {e}")
         import traceback
@@ -764,30 +700,25 @@ def get_carta_evento_aleatoria(campana_id=None, escena_actual=None):
         cur = conn.cursor()
         query = """
             SELECT * FROM cartas_evento
-            WHERE activa = 1
+            WHERE activa = TRUE
         """
         params = []
-        
         if campana_id:
-            query += " AND (campana_id = ? OR campana_id IS NULL)"
+            query += " AND (campana_id = %s OR campana_id IS NULL)"
             params.append(campana_id)
         else:
             query += " AND campana_id IS NULL"
-        
         if escena_actual is not None:
             query += """ AND (
                 escenas_validas IS NULL
-                OR JSON_EXTRACT(escenas_validas, '$') LIKE ?
+                OR JSON_CONTAINS(escenas_validas, %s)
             )"""
-            params.append(f'%{escena_actual}%')  # Aproximación para SQLite
-        
-        query += " ORDER BY RANDOM() LIMIT 1"
-        
+            params.append(str(escena_actual))
+        query += " ORDER BY RAND() LIMIT 1"
         cur.execute(query, params)
         carta = cur.fetchone()
         cur.close()
         conn.close()
-        
         if carta:
             if carta.get('efectos'):
                 carta['efectos'] = json.loads(carta['efectos']) if isinstance(carta['efectos'], str) else carta['efectos']
@@ -801,14 +732,12 @@ def get_carta_evento_aleatoria(campana_id=None, escena_actual=None):
 def aplicar_carta_evento(carta, indicadores):
     if not carta or not indicadores:
         return indicadores
-    
     efectos = carta.get('efectos', {})
     if isinstance(efectos, str):
         try:
             efectos = json.loads(efectos)
         except:
             efectos = {}
-    
     for key, valor in efectos.items():
         if key in indicadores:
             try:
@@ -830,33 +759,28 @@ def guardar_indicadores(campana_id, escena_actual, indicadores):
         cur = conn.cursor()
         cur.execute("""
             SELECT id FROM progreso_simulacion
-            WHERE usuario_id = ? AND campana_id = ?
+            WHERE usuario_id = %s AND campana_id = %s
         """, (current_user.id, campana_id))
         existente = cur.fetchone()
-        
         if not isinstance(indicadores, dict):
             indicadores = {'Participacion': 50, 'Confianza': 50, 'Educacion': 50, 'Seguridad': 50, 'Economia': 50}
-        
         for key in indicadores:
             indicadores[key] = max(0, min(100, indicadores.get(key, 50)))
-        
         indicadores_json = json.dumps(indicadores)
-        
         if existente:
             cur.execute("""
                 UPDATE progreso_simulacion
-                SET indicadores = ?,
-                    escena_actual = ?,
-                    updated_at = datetime('now')
-                WHERE usuario_id = ? AND campana_id = ?
+                SET indicadores = %s,
+                    escena_actual = %s,
+                    updated_at = NOW()
+                WHERE usuario_id = %s AND campana_id = %s
             """, (indicadores_json, escena_actual, current_user.id, campana_id))
         else:
             cur.execute("""
                 INSERT INTO progreso_simulacion
                 (usuario_id, campana_id, escena_actual, indicadores, fecha_inicio)
-                VALUES (?, ?, ?, ?, datetime('now'))
+                VALUES (%s, %s, %s, %s, NOW())
             """, (current_user.id, campana_id, escena_actual, indicadores_json))
-        
         conn.commit()
         cur.close()
         conn.close()
@@ -871,7 +795,7 @@ def get_ruta_alternativa(carta_id, escena_actual):
         cur = conn.cursor()
         cur.execute("""
             SELECT * FROM rutas_alternativas
-            WHERE carta_id = ? AND escena_id = ?
+            WHERE carta_id = %s AND escena_id = %s
         """, (carta_id, escena_actual))
         ruta = cur.fetchone()
         cur.close()
@@ -888,7 +812,7 @@ def simulacion():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM campanas_simulacion WHERE activa = 1 ORDER BY id")
+        cur.execute("SELECT * FROM campanas_simulacion WHERE activa = TRUE ORDER BY id")
         campanas = cur.fetchall()
         cur.close()
         conn.close()
@@ -904,21 +828,18 @@ def simulacion():
 def simulacion_jugar(id):
     escena_id = request.args.get('escena', 1)
     ruta_activa = request.args.get('ruta', None)
-    
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM campanas_simulacion WHERE id = ? AND activa = 1", (id,))
+        cur.execute("SELECT * FROM campanas_simulacion WHERE id = %s AND activa = TRUE", (id,))
         campana = cur.fetchone()
         cur.close()
         conn.close()
-        
         if campana:
             campana['introduccion'] = json.loads(campana['introduccion']) if campana['introduccion'] else {}
             campana['escenas'] = json.loads(campana['escenas']) if campana['escenas'] else []
             campana['finales'] = json.loads(campana['finales']) if campana['finales'] else []
             campana['eventos'] = json.loads(campana['eventos']) if campana['eventos'] else []
-            
             if len(campana['escenas']) < 10:
                 for i in range(len(campana['escenas']) + 1, 11):
                     campana['escenas'].append({
@@ -935,20 +856,17 @@ def simulacion_jugar(id):
             campana = get_simulacion_ejemplo(id)
     except:
         campana = get_simulacion_ejemplo(id)
-    
     total_escenas = len(campana['escenas'])
     escena_actual = int(escena_id)
     indicadores = get_indicadores_actuales(id, escena_actual, campana)
-    
     carta_evento = None
     mostrar_carta = False
     ruta_alternativa = None
-    
     if ruta_activa:
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("SELECT * FROM rutas_alternativas WHERE id = ?", (ruta_activa,))
+            cur.execute("SELECT * FROM rutas_alternativas WHERE id = %s", (ruta_activa,))
             ruta_alternativa = cur.fetchone()
             cur.close()
             conn.close()
@@ -956,7 +874,6 @@ def simulacion_jugar(id):
                 ruta_alternativa['opciones'] = json.loads(ruta_alternativa['opciones']) if ruta_alternativa['opciones'] else []
         except:
             pass
-    
     if not ruta_alternativa and escena_actual % 3 == 0 and escena_actual > 1:
         escena_actual_data = campana['escenas'][escena_actual - 1] if escena_actual <= len(campana['escenas']) else None
         if escena_actual_data and escena_actual_data.get('tipo') == 'decision':
@@ -969,7 +886,6 @@ def simulacion_jugar(id):
                         ruta_alternativa = ruta
                     indicadores = aplicar_carta_evento(carta_evento, indicadores)
                     guardar_indicadores(id, escena_actual, indicadores)
-    
     if ruta_alternativa:
         escena = {
             'id': escena_actual,
@@ -982,7 +898,6 @@ def simulacion_jugar(id):
         }
     else:
         escena = campana['escenas'][escena_actual - 1] if escena_actual <= len(campana['escenas']) else campana['escenas'][0]
-    
     if escena_actual > total_escenas:
         final = calcular_final(campana.get('finales', []), indicadores)
         escena_final = {
@@ -999,7 +914,6 @@ def simulacion_jugar(id):
                              indicadores=indicadores,
                              carta_evento=carta_evento if mostrar_carta else None,
                              ruta_alternativa=ruta_alternativa)
-    
     return render_template('simulacion/jugar.html', 
                          campana=campana,
                          escena=escena,
@@ -1100,12 +1014,11 @@ def get_indicadores_actuales(campana_id, escena_actual, campana):
         cur = conn.cursor()
         cur.execute("""
             SELECT indicadores FROM progreso_simulacion
-            WHERE usuario_id = ? AND campana_id = ?
+            WHERE usuario_id = %s AND campana_id = %s
         """, (current_user.id, campana_id))
         progreso = cur.fetchone()
         cur.close()
         conn.close()
-        
         if progreso and progreso['indicadores']:
             if isinstance(progreso['indicadores'], str):
                 indicadores = json.loads(progreso['indicadores'])
@@ -1117,7 +1030,6 @@ def get_indicadores_actuales(campana_id, escena_actual, campana):
             return indicadores
     except Exception as e:
         print(f"⚠️ Error cargando indicadores: {e}")
-    
     dificultad = campana.get('dificultad', 'Intermedio')
     if dificultad == 'Básico':
         return {'Participacion': 60, 'Confianza': 60, 'Educacion': 60, 'Seguridad': 60, 'Economia': 60}
@@ -1141,10 +1053,8 @@ def calcular_final(finales, indicadores):
             return final_por_defecto
     if not finales or not isinstance(finales, list):
         return final_por_defecto
-    
     mejor_final = finales[0] if finales else final_por_defecto
     mejor_puntaje = 0
-    
     for final in finales:
         if not isinstance(final, dict):
             continue
@@ -1179,7 +1089,6 @@ def calcular_final(finales, indicadores):
         if puntaje > mejor_puntaje:
             mejor_puntaje = puntaje
             mejor_final = final
-    
     if not isinstance(mejor_final, dict):
         return final_por_defecto
     if 'titulo' not in mejor_final:
@@ -1198,27 +1107,22 @@ def procesar_decision_simulacion():
     escena_id = data.get('escena_id')
     opcion = data.get('opcion')
     next_scene = int(escena_id) + 1
-    
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT escenas, dificultad FROM campanas_simulacion WHERE id = ?", (campana_id,))
+        cur.execute("SELECT escenas, dificultad FROM campanas_simulacion WHERE id = %s", (campana_id,))
         result = cur.fetchone()
         if not result:
             return jsonify({'next_scene': next_scene})
-        
         escenas = json.loads(result['escenas']) if result['escenas'] else []
         escena_actual = next((e for e in escenas if e.get('id') == int(escena_id)), None)
         if not escena_actual or not escena_actual.get('opciones') or len(escena_actual['opciones']) <= opcion:
             return jsonify({'next_scene': next_scene})
-        
         opcion_data = escena_actual['opciones'][opcion]
         consecuencias = opcion_data.get('consecuencias', {})
-        
-        cur.execute("SELECT indicadores FROM progreso_simulacion WHERE usuario_id = ? AND campana_id = ?", 
+        cur.execute("SELECT indicadores FROM progreso_simulacion WHERE usuario_id = %s AND campana_id = %s", 
                    (current_user.id, campana_id))
         progreso = cur.fetchone()
-        
         if progreso and progreso['indicadores']:
             if isinstance(progreso['indicadores'], str):
                 indicadores = json.loads(progreso['indicadores'])
@@ -1232,11 +1136,9 @@ def procesar_decision_simulacion():
                 indicadores = {'Participacion': 35, 'Confianza': 35, 'Educacion': 35, 'Seguridad': 35, 'Economia': 35}
             else:
                 indicadores = {'Participacion': 50, 'Confianza': 50, 'Educacion': 50, 'Seguridad': 50, 'Economia': 50}
-        
         for key in ['Participacion', 'Confianza', 'Educacion', 'Seguridad', 'Economia']:
             if key not in indicadores:
                 indicadores[key] = 50
-        
         for key, value in consecuencias.items():
             if key in indicadores:
                 try:
@@ -1245,28 +1147,24 @@ def procesar_decision_simulacion():
                     indicadores[key] = max(0, min(100, nuevo_valor))
                 except (ValueError, TypeError) as e:
                     print(f"⚠️ Error en {key}: {value} - {e}")
-        
         if progreso:
             cur.execute("""
                 UPDATE progreso_simulacion
-                SET escena_actual = ?, indicadores = ?, updated_at = datetime('now')
-                WHERE usuario_id = ? AND campana_id = ?
+                SET escena_actual = %s, indicadores = %s, updated_at = NOW()
+                WHERE usuario_id = %s AND campana_id = %s
             """, (next_scene, json.dumps(indicadores), current_user.id, campana_id))
         else:
             cur.execute("""
                 INSERT INTO progreso_simulacion (usuario_id, campana_id, escena_actual, indicadores)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
             """, (current_user.id, campana_id, next_scene, json.dumps(indicadores)))
-        
         conn.commit()
         cur.close()
         conn.close()
-        
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
-    
     return jsonify({'next_scene': next_scene})
 
 @app.route('/api/procesar_evento_simulacion', methods=['POST'])
@@ -1289,22 +1187,18 @@ def perfil():
             SELECT u.*, tu.nombre as tipo_usuario
             FROM usuarios u
             LEFT JOIN tipos_usuario tu ON u.tipo_usuario_id = tu.id
-            WHERE u.id = ?
+            WHERE u.id = %s
         """, (current_user.id,))
         usuario = cur.fetchone()
-        
         cur.execute("""
             SELECT COUNT(*) as total
             FROM progreso_lecciones
-            WHERE usuario_id = ? AND completada = 1
+            WHERE usuario_id = %s AND completada = TRUE
         """, (current_user.id,))
         completadas = cur.fetchone()
-        
         insignias = []
-        
         cur.close()
         conn.close()
-        
         return render_template('perfil/index.html', 
                              usuario=usuario, 
                              completadas=completadas['total'] if completadas else 0,
@@ -1325,10 +1219,6 @@ def perfil():
                              usuario=usuario, 
                              completadas=completadas,
                              insignias=insignias)
-
-# ============================================
-# CONFIGURACIÓN DE SUBIDA DE ARCHIVOS
-# ============================================
 
 import os
 from werkzeug.utils import secure_filename
@@ -1367,14 +1257,12 @@ def subir_foto_perfil():
         nuevo_nombre = f"perfil_{current_user.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.{extension}"
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], 'perfiles', nuevo_nombre)
         file.save(file_path)
-        
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE usuarios SET foto_perfil = ? WHERE id = ?", (f'/uploads/perfiles/{nuevo_nombre}', current_user.id))
+        cur.execute("UPDATE usuarios SET foto_perfil = %s WHERE id = %s", (f'/uploads/perfiles/{nuevo_nombre}', current_user.id))
         conn.commit()
         cur.close()
         conn.close()
-        
         return jsonify({
             'success': True, 
             'foto': f'/uploads/perfiles/{nuevo_nombre}',
@@ -1390,14 +1278,14 @@ def eliminar_foto_perfil():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT foto_perfil FROM usuarios WHERE id = ?", (current_user.id,))
+        cur.execute("SELECT foto_perfil FROM usuarios WHERE id = %s", (current_user.id,))
         usuario = cur.fetchone()
         if usuario and usuario['foto_perfil']:
             foto_path = os.path.join(app.config['UPLOAD_FOLDER'], 'perfiles', 
                                     usuario['foto_perfil'].split('/')[-1])
             if os.path.exists(foto_path):
                 os.remove(foto_path)
-            cur.execute("UPDATE usuarios SET foto_perfil = NULL WHERE id = ?", (current_user.id,))
+            cur.execute("UPDATE usuarios SET foto_perfil = NULL WHERE id = %s", (current_user.id,))
             conn.commit()
         cur.close()
         conn.close()
@@ -1443,10 +1331,10 @@ def profesor_salas():
         cur = conn.cursor()
         cur.execute("""
             SELECT s.*, 
-                   (SELECT COUNT(*) FROM sala_alumnos WHERE sala_id = s.id AND activo = 1) as total_alumnos,
-                   (SELECT COUNT(*) FROM sala_progreso WHERE sala_id = s.id AND completada = 1) as total_lecciones_completadas
+                   (SELECT COUNT(*) FROM sala_alumnos WHERE sala_id = s.id AND activo = TRUE) as total_alumnos,
+                   (SELECT COUNT(*) FROM sala_progreso WHERE sala_id = s.id AND completada = TRUE) as total_lecciones_completadas
             FROM salas_clase s
-            WHERE s.profesor_id = ? AND s.activa = 1
+            WHERE s.profesor_id = %s AND s.activa = TRUE
             ORDER BY s.creada_en DESC
         """, (current_user.id,))
         salas = cur.fetchall()
@@ -1477,7 +1365,7 @@ def profesor_sala_nueva():
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO salas_clase (nombre, descripcion, codigo_acceso, profesor_id)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
             """, (nombre, descripcion, codigo, current_user.id))
             conn.commit()
             cur.close()
@@ -1500,63 +1388,57 @@ def profesor_sala_detalle(sala_id):
         cur = conn.cursor()
         cur.execute("""
             SELECT * FROM salas_clase
-            WHERE id = ? AND profesor_id = ? AND activa = 1
+            WHERE id = %s AND profesor_id = %s AND activa = TRUE
         """, (sala_id, current_user.id))
         sala = cur.fetchone()
         if not sala:
             flash('Sala no encontrada', 'danger')
             return redirect(url_for('profesor_salas'))
-        
         cur.execute("""
             SELECT u.id, u.nombre, u.apellido_paterno, u.email, u.nivel, u.xp,
                    sa.fecha_ingreso,
                    (SELECT COUNT(*) FROM sala_progreso
-                    WHERE sala_id = ? AND alumno_id = u.id AND completada = 1) as lecciones_completadas,
+                    WHERE sala_id = %s AND alumno_id = u.id AND completada = TRUE) as lecciones_completadas,
                    (SELECT COUNT(*) FROM sala_progreso
-                    WHERE sala_id = ? AND alumno_id = u.id) as total_intentos,
+                    WHERE sala_id = %s AND alumno_id = u.id) as total_intentos,
                    (SELECT ROUND(AVG(puntaje)) FROM sala_progreso
-                    WHERE sala_id = ? AND alumno_id = u.id AND completada = 1) as promedio_puntaje
+                    WHERE sala_id = %s AND alumno_id = u.id AND completada = TRUE) as promedio_puntaje
             FROM sala_alumnos sa
             JOIN usuarios u ON sa.alumno_id = u.id
-            WHERE sa.sala_id = ? AND sa.activo = 1
+            WHERE sa.sala_id = %s AND sa.activo = TRUE
             ORDER BY u.nombre
         """, (sala_id, sala_id, sala_id, sala_id))
         alumnos = cur.fetchall()
-        
         cur.execute("""
             SELECT l.id, l.titulo, l.xp, l.icono,
                    COUNT(DISTINCT sp.alumno_id) as alumnos_completaron,
                    ROUND(AVG(sp.puntaje)) as promedio_puntaje_leccion
             FROM lecciones l
             LEFT JOIN sala_progreso sp ON l.id = sp.leccion_id
-                AND sp.sala_id = ? AND sp.completada = 1
-            WHERE l.activo = 1
+                AND sp.sala_id = %s AND sp.completada = TRUE
+            WHERE l.activo = TRUE
             GROUP BY l.id
             ORDER BY l.id
         """, (sala_id,))
         lecciones_progreso = cur.fetchall()
-        
         total_alumnos = len(alumnos)
         for leccion in lecciones_progreso:
             if total_alumnos > 0:
                 leccion['porcentaje'] = round((leccion['alumnos_completaron'] / total_alumnos) * 100)
             else:
                 leccion['porcentaje'] = 0
-        
         estadisticas = {
             'total_alumnos': total_alumnos,
             'total_lecciones': len(lecciones_progreso),
             'lecciones_completadas_totales': sum(l['alumnos_completaron'] for l in lecciones_progreso),
             'promedio_general': round(sum(l['promedio_puntaje_leccion'] or 0 for l in lecciones_progreso) / len(lecciones_progreso) if lecciones_progreso else 0)
         }
-        
         cur.close()
         conn.close()
     except Exception as e:
         print(f"Error en sala_detalle: {e}")
         flash('Error al cargar la sala', 'danger')
         return redirect(url_for('profesor_salas'))
-    
     return render_template('profesor/sala_detalle.html', 
                          sala=sala, 
                          alumnos=alumnos,
@@ -1575,47 +1457,42 @@ def profesor_sala_alumno(sala_id, alumno_id):
         cur = conn.cursor()
         cur.execute("""
             SELECT * FROM salas_clase
-            WHERE id = ? AND profesor_id = ? AND activa = 1
+            WHERE id = %s AND profesor_id = %s AND activa = TRUE
         """, (sala_id, current_user.id))
         sala = cur.fetchone()
         if not sala:
             flash('Sala no encontrada', 'danger')
             return redirect(url_for('profesor_salas'))
-        
         cur.execute("""
             SELECT u.*, sa.fecha_ingreso
             FROM usuarios u
             JOIN sala_alumnos sa ON u.id = sa.alumno_id
-            WHERE u.id = ? AND sa.sala_id = ? AND sa.activo = 1
+            WHERE u.id = %s AND sa.sala_id = %s AND sa.activo = TRUE
         """, (alumno_id, sala_id))
         alumno = cur.fetchone()
         if not alumno:
             flash('Alumno no encontrado en esta sala', 'danger')
             return redirect(url_for('profesor_sala_detalle', sala_id=sala_id))
-        
         cur.execute("""
             SELECT l.id, l.titulo, l.xp, l.icono,
                    sp.completada, sp.puntaje, sp.fecha_completada,
                    CASE WHEN sp.completada THEN 'Completada' ELSE 'Pendiente' END as estado
             FROM lecciones l
             LEFT JOIN sala_progreso sp ON l.id = sp.leccion_id
-                AND sp.alumno_id = ? AND sp.sala_id = ?
-            WHERE l.activo = 1
+                AND sp.alumno_id = %s AND sp.sala_id = %s
+            WHERE l.activo = TRUE
             ORDER BY l.id
         """, (alumno_id, sala_id))
         progreso = cur.fetchall()
-        
         total_lecciones = len(progreso)
         completadas = sum(1 for p in progreso if p['completada'])
         promedio = round(sum(p['puntaje'] or 0 for p in progreso if p['completada']) / completadas if completadas > 0 else 0)
-        
         cur.close()
         conn.close()
     except Exception as e:
         print(f"Error: {e}")
         flash('Error al cargar los datos', 'danger')
         return redirect(url_for('profesor_sala_detalle', sala_id=sala_id))
-    
     return render_template('profesor/sala_alumno.html', 
                          sala=sala, 
                          alumno=alumno,
@@ -1634,8 +1511,8 @@ def profesor_sala_eliminar(sala_id):
         cur = conn.cursor()
         cur.execute("""
             UPDATE salas_clase
-            SET activa = 0
-            WHERE id = ? AND profesor_id = ?
+            SET activa = FALSE
+            WHERE id = %s AND profesor_id = %s
         """, (sala_id, current_user.id))
         conn.commit()
         cur.close()
@@ -1654,13 +1531,13 @@ def sala_unirse():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT id FROM salas_clase WHERE codigo_acceso = ? AND activa = 1", (codigo,))
+        cur.execute("SELECT id FROM salas_clase WHERE codigo_acceso = %s AND activa = TRUE", (codigo,))
         sala = cur.fetchone()
         if not sala:
             return jsonify({'error': 'Código inválido o sala inactiva'}), 404
         cur.execute("""
-            INSERT OR IGNORE INTO sala_alumnos (sala_id, alumno_id)
-            VALUES (?, ?)
+            INSERT IGNORE INTO sala_alumnos (sala_id, alumno_id)
+            VALUES (%s, %s)
         """, (sala['id'], current_user.id))
         conn.commit()
         cur.close()
@@ -1680,13 +1557,13 @@ def admin_dashboard():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) as total FROM usuarios WHERE activo = 1")
+        cur.execute("SELECT COUNT(*) as total FROM usuarios WHERE activo = TRUE")
         total_usuarios = cur.fetchone()['total']
-        cur.execute("SELECT COUNT(*) as total FROM lecciones WHERE activo = 1")
+        cur.execute("SELECT COUNT(*) as total FROM lecciones WHERE activo = TRUE")
         total_lecciones = cur.fetchone()['total']
-        cur.execute("SELECT COUNT(*) as total FROM campanas_simulacion WHERE activa = 1")
+        cur.execute("SELECT COUNT(*) as total FROM campanas_simulacion WHERE activa = TRUE")
         total_simulaciones = cur.fetchone()['total']
-        cur.execute("SELECT COUNT(*) as total FROM autoridades WHERE activo = 1")
+        cur.execute("SELECT COUNT(*) as total FROM autoridades WHERE activo = TRUE")
         total_autoridades = cur.fetchone()['total']
         cur.close()
         conn.close()
@@ -1706,19 +1583,6 @@ def admin_dashboard():
     return render_template('admin/dashboard.html', estadisticas=estadisticas)
 
 # ========== RUTAS ADMIN - LECCIONES ==========
-# (Se mantienen idénticas, solo se cambia la función get_mundos para SQLite)
-def get_mundos():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM mundos_aprendizaje ORDER BY nombre")
-        mundos = cur.fetchall()
-        cur.close()
-        conn.close()
-        return mundos
-    except Exception as e:
-        print(f"Error obteniendo mundos: {e}")
-        return []
 
 @app.route('/admin/lecciones')
 @login_required
@@ -1762,7 +1626,6 @@ def admin_leccion_nueva():
         except ValueError:
             flash('ID de mundo inválido', 'danger')
             return render_template('admin/leccion_form.html', mundos=get_mundos(), leccion=None)
-        
         situacion_inicial = request.form.get('situacion_inicial', '')
         explicacion = request.form.get('explicacion', '')
         ejemplo = request.form.get('ejemplo', '')
@@ -1777,18 +1640,15 @@ def admin_leccion_nueva():
                 xp = 50
         except ValueError:
             xp = 50
-        
         preguntas = request.form.getlist('preguntas[]')
         opciones1 = request.form.getlist('opciones1[]')
         opciones2 = request.form.getlist('opciones2[]')
         opciones3 = request.form.getlist('opciones3[]')
         respuestas_correctas = request.form.getlist('respuestas_correctas[]')
         explicaciones = request.form.getlist('explicaciones[]')
-        
         if not preguntas or len(preguntas) == 0 or not preguntas[0].strip():
             flash('Debe haber al menos una pregunta.', 'danger')
             return render_template('admin/leccion_form.html', mundos=get_mundos(), leccion=None)
-        
         try:
             conn = get_db_connection()
             cur = conn.cursor()
@@ -1796,11 +1656,10 @@ def admin_leccion_nueva():
                 INSERT INTO lecciones (
                     mundo_id, titulo, situacion_inicial, explicacion,
                     ejemplo, historia, curiosidad, reflexion, xp, icono, activo
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
             """, (mundo_id, titulo, situacion_inicial, explicacion,
                   ejemplo, historia, curiosidad, reflexion, xp, icono))
             leccion_id = cur.lastrowid
-            
             for i in range(len(preguntas)):
                 if not preguntas[i].strip():
                     continue
@@ -1820,23 +1679,33 @@ def admin_leccion_nueva():
                 cur.execute("""
                     INSERT INTO actividades_leccion (
                         leccion_id, tipo, pregunta, opciones, respuesta_correcta, explicacion, orden
-                    ) VALUES (?, 'alternativas', ?, ?, ?, ?, ?)
+                    ) VALUES (%s, 'alternativas', %s, %s, %s, %s, %s)
                 """, (leccion_id, pregunta, opciones_json, respuesta_json, explicacion_act, i))
-            
             conn.commit()
             cur.close()
             conn.close()
             flash(f'¡Lección creada exitosamente con {len(preguntas)} pregunta(s)!', 'success')
             return redirect(url_for('admin_lecciones'))
-            
         except Exception as e:
             print(f"❌ ERROR al crear lección: {e}")
             import traceback
             traceback.print_exc()
             flash(f'Error al crear la lección: {str(e)}', 'danger')
-    
     mundos = get_mundos()
     return render_template('admin/leccion_form.html', mundos=mundos, leccion=None)
+
+def get_mundos():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM mundos_aprendizaje ORDER BY nombre")
+        mundos = cur.fetchall()
+        cur.close()
+        conn.close()
+        return mundos
+    except Exception as e:
+        print(f"Error obteniendo mundos: {e}")
+        return []
 
 @app.route('/admin/leccion/editar/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -1869,25 +1738,21 @@ def admin_leccion_editar(id):
                     xp = 50
             except ValueError:
                 xp = 50
-            
             cur.execute("""
                 UPDATE lecciones
-                SET mundo_id = ?, titulo = ?, situacion_inicial = ?, explicacion = ?,
-                    ejemplo = ?, historia = ?, curiosidad = ?, reflexion = ?,
-                    xp = ?, icono = ?, activo = ?
-                WHERE id = ?
+                SET mundo_id = %s, titulo = %s, situacion_inicial = %s, explicacion = %s,
+                    ejemplo = %s, historia = %s, curiosidad = %s, reflexion = %s,
+                    xp = %s, icono = %s, activo = %s
+                WHERE id = %s
             """, (mundo_id, titulo, situacion_inicial, explicacion, ejemplo, historia,
                   curiosidad, reflexion, xp, icono, activo, id))
-            
-            cur.execute("DELETE FROM actividades_leccion WHERE leccion_id = ?", (id,))
-            
+            cur.execute("DELETE FROM actividades_leccion WHERE leccion_id = %s", (id,))
             preguntas = request.form.getlist('preguntas[]')
             opciones1 = request.form.getlist('opciones1[]')
             opciones2 = request.form.getlist('opciones2[]')
             opciones3 = request.form.getlist('opciones3[]')
             respuestas_correctas = request.form.getlist('respuestas_correctas[]')
             explicaciones = request.form.getlist('explicaciones[]')
-            
             for i in range(len(preguntas)):
                 if not preguntas[i].strip():
                     continue
@@ -1907,18 +1772,16 @@ def admin_leccion_editar(id):
                 cur.execute("""
                     INSERT INTO actividades_leccion (
                         leccion_id, tipo, pregunta, opciones, respuesta_correcta, explicacion, orden
-                    ) VALUES (?, 'alternativas', ?, ?, ?, ?, ?)
+                    ) VALUES (%s, 'alternativas', %s, %s, %s, %s, %s)
                 """, (id, pregunta, opciones_json, respuesta_json, explicacion_act, i))
-            
             conn.commit()
             cur.close()
             conn.close()
             flash('¡Lección actualizada exitosamente!', 'success')
             return redirect(url_for('admin_lecciones'))
-        
-        cur.execute("SELECT * FROM lecciones WHERE id = ?", (id,))
+        cur.execute("SELECT * FROM lecciones WHERE id = %s", (id,))
         leccion = cur.fetchone()
-        cur.execute("SELECT * FROM actividades_leccion WHERE leccion_id = ? ORDER BY orden", (id,))
+        cur.execute("SELECT * FROM actividades_leccion WHERE leccion_id = %s ORDER BY orden", (id,))
         actividades = cur.fetchall()
         for act in actividades:
             if act.get('opciones'):
@@ -1931,7 +1794,6 @@ def admin_leccion_editar(id):
         cur.close()
         conn.close()
         return render_template('admin/leccion_form.html', leccion=leccion, mundos=mundos)
-        
     except Exception as e:
         print(f"Error: {e}")
         flash('Error al editar la lección', 'danger')
@@ -1945,7 +1807,7 @@ def admin_leccion_eliminar(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("DELETE FROM lecciones WHERE id = ?", (id,))
+        cur.execute("DELETE FROM lecciones WHERE id = %s", (id,))
         conn.commit()
         cur.close()
         conn.close()
@@ -1953,8 +1815,8 @@ def admin_leccion_eliminar(id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ========== RUTAS ADMIN - SIMULACIONES ==========
-# (Se mantienen igual, solo se ajustan las consultas con ?)
+# ========== RUTAS ADMIN - SIMULACIONES (CON ESCENAS) ==========
+
 @app.route('/admin/simulaciones')
 @login_required
 def admin_simulaciones():
@@ -1990,7 +1852,6 @@ def admin_simulacion_nueva():
             dificultad = request.form.get('dificultad', 'Intermedio')
             xp_recompensa = request.form.get('xp_recompensa', 100)
             activa = 1 if request.form.get('activa') else 0
-            
             escenas_base = []
             for i in range(1, 11):
                 escena = {
@@ -2004,7 +1865,6 @@ def admin_simulacion_nueva():
                     ]
                 }
                 escenas_base.append(escena)
-            
             introduccion = json.dumps({
                 'contexto': request.form.get('contexto', 'Contexto inicial de la simulación.'),
                 'personajes': [
@@ -2030,19 +1890,17 @@ def admin_simulacion_nueva():
                 {'trigger': 3, 'titulo': 'Evento inesperado', 'descripcion': 'Descripción del evento.'},
                 {'trigger': 7, 'titulo': 'Segundo evento', 'descripcion': 'Descripción del segundo evento.'}
             ])
-            
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO campanas_simulacion (titulo, descripcion, dificultad, introduccion, escenas, finales, eventos, xp_recompensa, activa)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (titulo, descripcion, dificultad, introduccion, escenas, finales, eventos, xp_recompensa, activa))
             conn.commit()
             cur.close()
             conn.close()
             flash('¡Simulación creada exitosamente con 10 situaciones!', 'success')
             return redirect(url_for('admin_simulaciones'))
-            
         except Exception as e:
             print(f"Error: {e}")
             flash('Error al crear la simulación', 'danger')
@@ -2065,16 +1923,15 @@ def admin_simulacion_editar(id):
             activa = 1 if request.form.get('activa') else 0
             cur.execute("""
                 UPDATE campanas_simulacion
-                SET titulo = ?, descripcion = ?, dificultad = ?, xp_recompensa = ?, activa = ?
-                WHERE id = ?
+                SET titulo = %s, descripcion = %s, dificultad = %s, xp_recompensa = %s, activa = %s
+                WHERE id = %s
             """, (titulo, descripcion, dificultad, xp_recompensa, activa, id))
             conn.commit()
             cur.close()
             conn.close()
             flash('¡Simulación actualizada!', 'success')
             return redirect(url_for('admin_simulaciones'))
-        
-        cur.execute("SELECT * FROM campanas_simulacion WHERE id = ?", (id,))
+        cur.execute("SELECT * FROM campanas_simulacion WHERE id = %s", (id,))
         simulacion = cur.fetchone()
         if simulacion:
             simulacion['introduccion'] = json.loads(simulacion['introduccion']) if simulacion['introduccion'] else {}
@@ -2098,7 +1955,7 @@ def admin_simulacion_editar_escenas(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM campanas_simulacion WHERE id = ?", (id,))
+        cur.execute("SELECT * FROM campanas_simulacion WHERE id = %s", (id,))
         simulacion = cur.fetchone()
         cur.close()
         conn.close()
@@ -2106,7 +1963,6 @@ def admin_simulacion_editar_escenas(id):
             flash('Simulación no encontrada', 'danger')
             return redirect(url_for('admin_simulaciones'))
         escenas = json.loads(simulacion['escenas']) if simulacion['escenas'] else []
-        
         if request.method == 'POST':
             escena_ids = request.form.getlist('escena_id[]')
             escena_original_ids = request.form.getlist('escena_original_id[]')
@@ -2120,7 +1976,6 @@ def admin_simulacion_editar_escenas(id):
             cons_educacion = request.form.getlist('cons_educacion[]')
             cons_seguridad = request.form.getlist('cons_seguridad[]')
             cons_economia = request.form.getlist('cons_economia[]')
-            
             nuevas_escenas = []
             for i in range(len(escena_ids)):
                 if i < len(escena_original_ids) and escena_original_ids[i] != 'new':
@@ -2184,24 +2039,21 @@ def admin_simulacion_editar_escenas(id):
                         opciones = [{'texto': 'Opción por defecto'}]
                     escena['opciones'] = opciones
                 nuevas_escenas.append(escena)
-            
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute("""
                 UPDATE campanas_simulacion
-                SET escenas = ?
-                WHERE id = ?
+                SET escenas = %s
+                WHERE id = %s
             """, (json.dumps(nuevas_escenas, ensure_ascii=False), id))
             conn.commit()
             cur.close()
             conn.close()
             flash('¡Situaciones actualizadas exitosamente!', 'success')
             return redirect(url_for('admin_simulaciones'))
-        
         return render_template('admin/simulacion_escenas.html', 
                              simulacion=simulacion, 
                              escenas=escenas)
-        
     except Exception as e:
         print(f"Error: {e}")
         import traceback
@@ -2212,7 +2064,7 @@ def admin_simulacion_editar_escenas(id):
 # ============================================
 # RUTAS ADMIN - CARTAS DE EVENTO
 # ============================================
-# (Ajustadas para SQLite, pero la lógica es igual)
+
 @app.route('/admin/cartas_evento')
 @login_required
 @admin_required
@@ -2284,14 +2136,13 @@ def admin_carta_evento_nueva():
                 efectos['Seguridad'] = int(request.form.get('efecto_seguridad'))
             if request.form.get('efecto_economia'):
                 efectos['Economia'] = int(request.form.get('efecto_economia'))
-            
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO cartas_evento
                 (titulo, descripcion, icono, tipo, efectos, mensaje_visible,
                  probabilidad, activa, creado_por, campana_id, escenas_validas)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (titulo, descripcion, icono, tipo, json.dumps(efectos), mensaje_visible,
                   probabilidad, activa, current_user.id, campana_id, escenas_validas))
             conn.commit()
@@ -2302,11 +2153,10 @@ def admin_carta_evento_nueva():
         except Exception as e:
             print(f"Error: {e}")
             flash('Error al crear la carta', 'danger')
-    
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT id, titulo FROM campanas_simulacion WHERE activa = 1 ORDER BY titulo")
+        cur.execute("SELECT id, titulo FROM campanas_simulacion WHERE activa = TRUE ORDER BY titulo")
         simulaciones = cur.fetchall()
         cur.close()
         conn.close()
@@ -2356,13 +2206,12 @@ def admin_carta_evento_editar(id):
                 efectos['Seguridad'] = int(request.form.get('efecto_seguridad'))
             if request.form.get('efecto_economia'):
                 efectos['Economia'] = int(request.form.get('efecto_economia'))
-            
             cur.execute("""
                 UPDATE cartas_evento
-                SET titulo = ?, descripcion = ?, icono = ?, tipo = ?,
-                    efectos = ?, mensaje_visible = ?, probabilidad = ?,
-                    activa = ?, campana_id = ?, escenas_validas = ?
-                WHERE id = ?
+                SET titulo = %s, descripcion = %s, icono = %s, tipo = %s,
+                    efectos = %s, mensaje_visible = %s, probabilidad = %s,
+                    activa = %s, campana_id = %s, escenas_validas = %s
+                WHERE id = %s
             """, (titulo, descripcion, icono, tipo, json.dumps(efectos), mensaje_visible,
                   probabilidad, activa, campana_id, escenas_validas, id))
             conn.commit()
@@ -2370,10 +2219,9 @@ def admin_carta_evento_editar(id):
             conn.close()
             flash('✅ ¡Carta actualizada!', 'success')
             return redirect(url_for('admin_cartas_evento'))
-        
-        cur.execute("SELECT * FROM cartas_evento WHERE id = ?", (id,))
+        cur.execute("SELECT * FROM cartas_evento WHERE id = %s", (id,))
         carta = cur.fetchone()
-        cur.execute("SELECT id, titulo FROM campanas_simulacion WHERE activa = 1 ORDER BY titulo")
+        cur.execute("SELECT id, titulo FROM campanas_simulacion WHERE activa = TRUE ORDER BY titulo")
         simulaciones = cur.fetchall()
         cur.close()
         conn.close()
@@ -2399,7 +2247,6 @@ def admin_carta_evento_editar(id):
             else:
                 carta['escenas_validas'] = []
         return render_template('admin/carta_evento_form.html', carta=carta, simulaciones=simulaciones)
-        
     except Exception as e:
         print(f"Error: {e}")
         flash('Error al editar la carta', 'danger')
@@ -2412,7 +2259,7 @@ def admin_carta_evento_eliminar(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("DELETE FROM cartas_evento WHERE id = ?", (id,))
+        cur.execute("DELETE FROM cartas_evento WHERE id = %s", (id,))
         conn.commit()
         cur.close()
         conn.close()
@@ -2423,6 +2270,7 @@ def admin_carta_evento_eliminar(id):
 # ============================================
 # RUTAS ADMIN - RUTAS ALTERNATIVAS
 # ============================================
+
 @app.route('/admin/rutas_alternativas')
 @login_required
 @admin_required
@@ -2455,7 +2303,6 @@ def admin_ruta_alternativa_nueva():
             nuevo_contexto = request.form.get('nuevo_contexto')
             nuevo_problema = request.form.get('nuevo_problema')
             siguiente_escena = request.form.get('siguiente_escena')
-            
             opciones = []
             opcion1_texto = request.form.get('opcion1_texto')
             if opcion1_texto:
@@ -2474,7 +2321,6 @@ def admin_ruta_alternativa_nueva():
                 if consecuencias:
                     opcion['consecuencias'] = consecuencias
                 opciones.append(opcion)
-            
             opcion2_texto = request.form.get('opcion2_texto')
             if opcion2_texto:
                 opcion = {'texto': opcion2_texto}
@@ -2492,7 +2338,6 @@ def admin_ruta_alternativa_nueva():
                 if consecuencias:
                     opcion['consecuencias'] = consecuencias
                 opciones.append(opcion)
-            
             opcion3_texto = request.form.get('opcion3_texto')
             if opcion3_texto:
                 opcion = {'texto': opcion3_texto}
@@ -2510,17 +2355,15 @@ def admin_ruta_alternativa_nueva():
                 if consecuencias:
                     opcion['consecuencias'] = consecuencias
                 opciones.append(opcion)
-            
             if not opciones:
                 flash('Debes agregar al menos una opción', 'danger')
                 return render_template('admin/ruta_alternativa_form.html')
-            
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO rutas_alternativas
                 (carta_id, escena_id, nuevo_contexto, nuevo_problema, opciones, siguiente_escena)
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s)
             """, (carta_id, escena_id, nuevo_contexto, nuevo_problema, json.dumps(opciones), siguiente_escena))
             conn.commit()
             cur.close()
@@ -2530,11 +2373,10 @@ def admin_ruta_alternativa_nueva():
         except Exception as e:
             print(f"Error: {e}")
             flash('Error al crear la ruta alternativa', 'danger')
-    
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT id, titulo, icono FROM cartas_evento WHERE activa = 1")
+        cur.execute("SELECT id, titulo, icono FROM cartas_evento WHERE activa = TRUE")
         cartas = cur.fetchall()
         cur.close()
         conn.close()
@@ -2556,7 +2398,6 @@ def admin_ruta_alternativa_editar(id):
             nuevo_contexto = request.form.get('nuevo_contexto')
             nuevo_problema = request.form.get('nuevo_problema')
             siguiente_escena = request.form.get('siguiente_escena')
-            
             opciones = []
             opcion1_texto = request.form.get('opcion1_texto')
             if opcion1_texto:
@@ -2575,7 +2416,6 @@ def admin_ruta_alternativa_editar(id):
                 if consecuencias:
                     opcion['consecuencias'] = consecuencias
                 opciones.append(opcion)
-            
             opcion2_texto = request.form.get('opcion2_texto')
             if opcion2_texto:
                 opcion = {'texto': opcion2_texto}
@@ -2593,7 +2433,6 @@ def admin_ruta_alternativa_editar(id):
                 if consecuencias:
                     opcion['consecuencias'] = consecuencias
                 opciones.append(opcion)
-            
             opcion3_texto = request.form.get('opcion3_texto')
             if opcion3_texto:
                 opcion = {'texto': opcion3_texto}
@@ -2611,29 +2450,26 @@ def admin_ruta_alternativa_editar(id):
                 if consecuencias:
                     opcion['consecuencias'] = consecuencias
                 opciones.append(opcion)
-            
             cur.execute("""
                 UPDATE rutas_alternativas
-                SET carta_id = ?, escena_id = ?, nuevo_contexto = ?,
-                    nuevo_problema = ?, opciones = ?, siguiente_escena = ?
-                WHERE id = ?
+                SET carta_id = %s, escena_id = %s, nuevo_contexto = %s,
+                    nuevo_problema = %s, opciones = %s, siguiente_escena = %s
+                WHERE id = %s
             """, (carta_id, escena_id, nuevo_contexto, nuevo_problema, json.dumps(opciones), siguiente_escena, id))
             conn.commit()
             cur.close()
             conn.close()
             flash('✅ ¡Ruta alternativa actualizada!', 'success')
             return redirect(url_for('admin_rutas_alternativas'))
-        
-        cur.execute("SELECT * FROM rutas_alternativas WHERE id = ?", (id,))
+        cur.execute("SELECT * FROM rutas_alternativas WHERE id = %s", (id,))
         ruta = cur.fetchone()
-        cur.execute("SELECT id, titulo, icono FROM cartas_evento WHERE activa = 1")
+        cur.execute("SELECT id, titulo, icono FROM cartas_evento WHERE activa = TRUE")
         cartas = cur.fetchall()
         cur.close()
         conn.close()
         if ruta and ruta['opciones']:
             ruta['opciones'] = json.loads(ruta['opciones']) if isinstance(ruta['opciones'], str) else ruta['opciones']
         return render_template('admin/ruta_alternativa_form.html', ruta=ruta, cartas=cartas)
-        
     except Exception as e:
         print(f"Error: {e}")
         flash('Error al editar la ruta alternativa', 'danger')
@@ -2646,7 +2482,7 @@ def admin_ruta_alternativa_eliminar(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("DELETE FROM rutas_alternativas WHERE id = ?", (id,))
+        cur.execute("DELETE FROM rutas_alternativas WHERE id = %s", (id,))
         conn.commit()
         cur.close()
         conn.close()
@@ -2655,17 +2491,8 @@ def admin_ruta_alternativa_eliminar(id):
         return jsonify({'error': str(e)}), 500
 
 # ============================================
-# RUTAS ADMIN - USUARIOS, TAREAS, NOTICIAS, AUTORIDADES, PROPUESTAS, ESTADO
+# RUTAS ADMIN - USUARIOS
 # ============================================
-# Todas estas rutas se mantienen EXACTAMENTE IGUALES,
-# solo se modifican las consultas para SQLite (sustituir %s por ?,
-# y reemplazar CURDATE() por date('now'), etc.)
-
-# Por razones de espacio, te entrego el bloque completo pero con los cambios
-# ya aplicados en las consultas principales. Si necesitas alguna parte específica,
-# dímelo.
-
-# A continuación, todas las rutas de administración restantes, con los cambios SQLite.
 
 @app.route('/admin/usuarios')
 @login_required
@@ -2705,10 +2532,10 @@ def admin_usuario_cambiar_tipo(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT id FROM usuarios WHERE id = ?", (id,))
+        cur.execute("SELECT id FROM usuarios WHERE id = %s", (id,))
         if not cur.fetchone():
             return jsonify({'error': 'Usuario no encontrado'}), 404
-        cur.execute("UPDATE usuarios SET tipo_usuario_id = ? WHERE id = ?", (tipo_usuario_id, id))
+        cur.execute("UPDATE usuarios SET tipo_usuario_id = %s WHERE id = %s", (tipo_usuario_id, id))
         conn.commit()
         cur.close()
         conn.close()
@@ -2731,12 +2558,12 @@ def admin_usuario_bloquear(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT activo FROM usuarios WHERE id = ?", (id,))
+        cur.execute("SELECT activo FROM usuarios WHERE id = %s", (id,))
         user = cur.fetchone()
         if not user:
             return jsonify({'error': 'Usuario no encontrado'}), 404
         nuevo_estado = 0 if user['activo'] else 1
-        cur.execute("UPDATE usuarios SET activo = ? WHERE id = ?", (nuevo_estado, id))
+        cur.execute("UPDATE usuarios SET activo = %s WHERE id = %s", (nuevo_estado, id))
         conn.commit()
         cur.close()
         conn.close()
@@ -2754,19 +2581,21 @@ def admin_usuario_eliminar(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT tipo_usuario_id FROM usuarios WHERE id = ?", (id,))
+        cur.execute("SELECT tipo_usuario_id FROM usuarios WHERE id = %s", (id,))
         user = cur.fetchone()
         if not user:
             return jsonify({'error': 'Usuario no encontrado'}), 404
         if user['tipo_usuario_id'] == 1:
             return jsonify({'error': 'No puedes eliminar a otro Super Admin'}), 400
-        cur.execute("DELETE FROM usuarios WHERE id = ?", (id,))
+        cur.execute("DELETE FROM usuarios WHERE id = %s", (id,))
         conn.commit()
         cur.close()
         conn.close()
         return jsonify({'success': True, 'message': 'Usuario eliminado'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ========== RUTAS ADMIN - TAREAS ==========
 
 @app.route('/admin/tareas')
 @login_required
@@ -2807,7 +2636,7 @@ def admin_tarea_nueva():
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO tareas (titulo, descripcion, archivo_url, creado_por)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
             """, (titulo, descripcion, archivo_url, current_user.id))
             conn.commit()
             cur.close()
@@ -2831,7 +2660,7 @@ def admin_tarea_editar(id):
             if file and file.filename != '' and allowed_file(file.filename):
                 conn = get_db_connection()
                 cur = conn.cursor()
-                cur.execute("SELECT archivo_url FROM tareas WHERE id = ?", (id,))
+                cur.execute("SELECT archivo_url FROM tareas WHERE id = %s", (id,))
                 tarea_old = cur.fetchone()
                 if tarea_old and tarea_old['archivo_url']:
                     ruta_old = os.path.join(app.config['UPLOAD_FOLDER'], 'tareas', 
@@ -2850,11 +2679,11 @@ def admin_tarea_editar(id):
             cur = conn.cursor()
             if archivo_url:
                 cur.execute("""
-                    UPDATE tareas SET titulo=?, descripcion=?, archivo_url=? WHERE id=?
+                    UPDATE tareas SET titulo=%s, descripcion=%s, archivo_url=%s WHERE id=%s
                 """, (titulo, descripcion, archivo_url, id))
             else:
                 cur.execute("""
-                    UPDATE tareas SET titulo=?, descripcion=? WHERE id=?
+                    UPDATE tareas SET titulo=%s, descripcion=%s WHERE id=%s
                 """, (titulo, descripcion, id))
             conn.commit()
             cur.close()
@@ -2866,7 +2695,7 @@ def admin_tarea_editar(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM tareas WHERE id = ?", (id,))
+        cur.execute("SELECT * FROM tareas WHERE id = %s", (id,))
         tarea = cur.fetchone()
         cur.close()
         conn.close()
@@ -2883,13 +2712,15 @@ def admin_tarea_eliminar(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("DELETE FROM tareas WHERE id = ?", (id,))
+        cur.execute("DELETE FROM tareas WHERE id = %s", (id,))
         conn.commit()
         cur.close()
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ========== RUTAS ADMIN - NOTICIAS ==========
 
 @app.route('/admin/noticias')
 @login_required
@@ -2926,7 +2757,7 @@ def admin_noticia_nueva():
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO noticias (titulo, descripcion, fecha, icono, activa, destacada)
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s)
             """, (titulo, descripcion, fecha, icono, activa, destacada))
             conn.commit()
             cur.close()
@@ -2956,15 +2787,15 @@ def admin_noticia_editar(id):
             destacada = 1 if request.form.get('destacada') else 0
             cur.execute("""
                 UPDATE noticias
-                SET titulo = ?, descripcion = ?, fecha = ?, icono = ?, activa = ?, destacada = ?
-                WHERE id = ?
+                SET titulo = %s, descripcion = %s, fecha = %s, icono = %s, activa = %s, destacada = %s
+                WHERE id = %s
             """, (titulo, descripcion, fecha, icono, activa, destacada, id))
             conn.commit()
             cur.close()
             conn.close()
             flash('¡Noticia actualizada!', 'success')
             return redirect(url_for('admin_noticias'))
-        cur.execute("SELECT * FROM noticias WHERE id = ?", (id,))
+        cur.execute("SELECT * FROM noticias WHERE id = %s", (id,))
         noticia = cur.fetchone()
         cur.close()
         conn.close()
@@ -2982,7 +2813,7 @@ def admin_noticia_eliminar(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("DELETE FROM noticias WHERE id = ?", (id,))
+        cur.execute("DELETE FROM noticias WHERE id = %s", (id,))
         conn.commit()
         cur.close()
         conn.close()
@@ -2993,6 +2824,7 @@ def admin_noticia_eliminar(id):
 # ============================================
 # RUTAS ADMIN - AUTORIDADES (COMPLETAS)
 # ============================================
+
 @app.route('/admin/autoridades')
 @login_required
 @admin_required
@@ -3037,7 +2869,7 @@ def admin_autoridad_nueva():
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO autoridades (nombre, apellido_paterno, cargo, tipo_autoridad_id, partido, descripcion_cargo, biografia, activo)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (nombre, apellido_paterno, cargo, tipo_autoridad_id, partido, descripcion_cargo, biografia, activo))
             conn.commit()
             cur.close()
@@ -3079,16 +2911,16 @@ def admin_autoridad_editar(id):
             activo = 1 if request.form.get('activo') else 0
             cur.execute("""
                 UPDATE autoridades
-                SET nombre = ?, apellido_paterno = ?, cargo = ?, tipo_autoridad_id = ?,
-                    partido = ?, descripcion_cargo = ?, biografia = ?, activo = ?
-                WHERE id = ?
+                SET nombre = %s, apellido_paterno = %s, cargo = %s, tipo_autoridad_id = %s,
+                    partido = %s, descripcion_cargo = %s, biografia = %s, activo = %s
+                WHERE id = %s
             """, (nombre, apellido_paterno, cargo, tipo_autoridad_id, partido, descripcion_cargo, biografia, activo, id))
             conn.commit()
             cur.close()
             conn.close()
             flash('¡Autoridad actualizada!', 'success')
             return redirect(url_for('admin_autoridades'))
-        cur.execute("SELECT * FROM autoridades WHERE id = ?", (id,))
+        cur.execute("SELECT * FROM autoridades WHERE id = %s", (id,))
         autoridad = cur.fetchone()
         cur.execute("SELECT * FROM tipos_autoridad")
         tipos = cur.fetchall()
@@ -3109,7 +2941,7 @@ def admin_autoridad_eliminar(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("DELETE FROM autoridades WHERE id = ?", (id,))
+        cur.execute("DELETE FROM autoridades WHERE id = %s", (id,))
         conn.commit()
         cur.close()
         conn.close()
@@ -3138,7 +2970,7 @@ def admin_autoridad_subir_foto(id):
         file.save(file_path)
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE autoridades SET foto = ? WHERE id = ?", (f'/uploads/autoridades/{nuevo_nombre}', id))
+        cur.execute("UPDATE autoridades SET foto = %s WHERE id = %s", (f'/uploads/autoridades/{nuevo_nombre}', id))
         conn.commit()
         cur.close()
         conn.close()
@@ -3160,14 +2992,14 @@ def admin_autoridad_eliminar_foto(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT foto FROM autoridades WHERE id = ?", (id,))
+        cur.execute("SELECT foto FROM autoridades WHERE id = %s", (id,))
         autoridad = cur.fetchone()
         if autoridad and autoridad['foto']:
             foto_path = os.path.join(app.config['UPLOAD_FOLDER'], 'autoridades',
                                     autoridad['foto'].split('/')[-1])
             if os.path.exists(foto_path):
                 os.remove(foto_path)
-            cur.execute("UPDATE autoridades SET foto = NULL WHERE id = ?", (id,))
+            cur.execute("UPDATE autoridades SET foto = NULL WHERE id = %s", (id,))
             conn.commit()
         cur.close()
         conn.close()
@@ -3176,6 +3008,7 @@ def admin_autoridad_eliminar_foto(id):
         return jsonify({'error': str(e)}), 500
 
 # ========== RUTAS ADMIN - PROPUESTAS ==========
+
 @app.route('/admin/propuestas')
 @login_required
 @admin_required
@@ -3219,7 +3052,7 @@ def admin_propuesta_nueva():
             cur.execute("""
                 INSERT INTO propuestas
                 (autoridad_id, titulo, descripcion, explicacion, impacto_personal, estado, fecha_publicacion, fuente_oficial)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (autoridad_id, titulo, descripcion, explicacion, impacto_personal, estado, fecha_publicacion, fuente_oficial))
             conn.commit()
             cur.close()
@@ -3258,16 +3091,16 @@ def admin_propuesta_editar(id):
             fuente_oficial = request.form.get('fuente_oficial')
             cur.execute("""
                 UPDATE propuestas
-                SET autoridad_id = ?, titulo = ?, descripcion = ?, explicacion = ?,
-                    impacto_personal = ?, estado = ?, fecha_publicacion = ?, fuente_oficial = ?
-                WHERE id = ?
+                SET autoridad_id = %s, titulo = %s, descripcion = %s, explicacion = %s,
+                    impacto_personal = %s, estado = %s, fecha_publicacion = %s, fuente_oficial = %s
+                WHERE id = %s
             """, (autoridad_id, titulo, descripcion, explicacion, impacto_personal, estado, fecha_publicacion, fuente_oficial, id))
             conn.commit()
             cur.close()
             conn.close()
             flash('✅ Propuesta actualizada correctamente', 'success')
             return redirect(url_for('admin_propuestas'))
-        cur.execute("SELECT * FROM propuestas WHERE id = ?", (id,))
+        cur.execute("SELECT * FROM propuestas WHERE id = %s", (id,))
         propuesta = cur.fetchone()
         if not propuesta:
             flash('Propuesta no encontrada', 'danger')
@@ -3288,13 +3121,17 @@ def admin_propuesta_eliminar(id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("DELETE FROM propuestas WHERE id = ?", (id,))
+        cur.execute("DELETE FROM propuestas WHERE id = %s", (id,))
         conn.commit()
         cur.close()
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ============================================
+# RUTAS PÚBLICAS - PROPUESTAS
+# ============================================
 
 @app.route('/propuesta/<int:id>')
 def detalle_propuesta(id):
@@ -3305,7 +3142,7 @@ def detalle_propuesta(id):
             SELECT p.*, a.nombre AS autoridad_nombre, a.apellido_paterno AS autoridad_apellido, a.cargo
             FROM propuestas p
             JOIN autoridades a ON p.autoridad_id = a.id
-            WHERE p.id = ? AND p.estado != 'Archivada'
+            WHERE p.id = %s AND p.estado != 'Archivada'
         """, (id,))
         propuesta = cur.fetchone()
         cur.close()
@@ -3318,8 +3155,39 @@ def detalle_propuesta(id):
         flash(f'Error al cargar la propuesta: {e}', 'danger')
         return redirect(url_for('estado'))
 
+# ============================================
+# MODIFICAR RUTA EXISTENTE: perfil_autoridad
+# ============================================
+
+@app.route('/estado/perfil/<int:id>')
+def perfil_autoridad(id):
+    autoridades = get_autoridades_from_json()
+    autoridad = next((a for a in autoridades if a['id'] == id), None)
+    if not autoridad:
+        flash('Autoridad no encontrada', 'danger')
+        return redirect(url_for('estado'))
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM propuestas
+            WHERE autoridad_id = %s AND estado != 'Archivada'
+            ORDER BY fecha_publicacion DESC, created_at DESC
+        """, (id,))
+        propuestas = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error cargando propuestas: {e}")
+        propuestas = []
+    return render_template('estado/perfil_autoridad.html', autoridad=autoridad, propuestas=propuestas)
+
 # ========== RUTAS DE ESTADO ==========
-# Se mantienen con las consultas SQLite ajustadas.
+
+import json
+import os
+import pymysql
+
 def get_autoridades_from_json():
     try:
         json_path = os.path.join(os.path.dirname(__file__), 'data', 'autoridades_2026.json')
@@ -3334,13 +3202,13 @@ def sync_autoridades_to_db(autoridades):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("DELETE FROM autoridades")  # TRUNCATE en SQLite se hace con DELETE
+        cur.execute("TRUNCATE autoridades")
         for auth in autoridades:
             cur.execute("""
                 INSERT INTO autoridades (
                     id, nombre, apellido_paterno, cargo, descripcion_cargo,
                     partido, activo, prioridad
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 auth.get('id', 0),
                 auth.get('nombre', ''),
@@ -3357,29 +3225,6 @@ def sync_autoridades_to_db(autoridades):
         print(f"✅ BD sincronizada: {len(autoridades)} autoridades")
     except Exception as e:
         print(f"Error sincronizando BD: {e}")
-
-@app.route('/estado/perfil/<int:id>')
-def perfil_autoridad(id):
-    autoridades = get_autoridades_from_json()
-    autoridad = next((a for a in autoridades if a['id'] == id), None)
-    if not autoridad:
-        flash('Autoridad no encontrada', 'danger')
-        return redirect(url_for('estado'))
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT * FROM propuestas
-            WHERE autoridad_id = ? AND estado != 'Archivada'
-            ORDER BY fecha_publicacion DESC, created_at DESC
-        """, (id,))
-        propuestas = cur.fetchall()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        print(f"Error cargando propuestas: {e}")
-        propuestas = []
-    return render_template('estado/perfil_autoridad.html', autoridad=autoridad, propuestas=propuestas)
 
 @app.route('/estado')
 def estado():
@@ -3398,11 +3243,11 @@ def activar_premium_demo():
         cur = conn.cursor()
         cur.execute("""
             UPDATE usuarios
-            SET es_premium = 1,
-                fecha_suscripcion = date('now'),
-                fecha_expiracion = date('now', '+30 days'),
+            SET es_premium = TRUE,
+                fecha_suscripcion = CURDATE(),
+                fecha_expiracion = DATE_ADD(CURDATE(), INTERVAL 30 DAY),
                 plan = 'profesional'
-            WHERE id = ?
+            WHERE id = %s
         """, (current_user.id,))
         conn.commit()
         cur.close()
@@ -3412,6 +3257,7 @@ def activar_premium_demo():
         return jsonify({'error': str(e)}), 500
 
 # ========== ERRORES ==========
+
 @app.errorhandler(404)
 def not_found(error):
     return render_template('404.html'), 404
