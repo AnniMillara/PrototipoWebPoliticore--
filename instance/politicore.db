@@ -1,869 +1,855 @@
--- =============================================
--- BASE DE DATOS COMPLETA PARA POLITICORE 2026
--- VERSIÓN FINAL - CON SISTEMA DE CARTAS CONTEXTUALES
--- =============================================
-
--- 1. CREAR BASE DE DATOS
--- =============================================
-DROP DATABASE IF EXISTS politicore;
-CREATE DATABASE politicore CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE politicore;
-
--- =============================================
--- 2. TABLAS DE USUARIOS Y PERFILES
--- =============================================
-
--- 2.1 Tipos de Usuario
-CREATE TABLE tipos_usuario (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE,
-    descripcion TEXT,
-    nivel_acceso INT DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_tipos_usuario_nombre (nombre)
-);
-
--- 2.2 Usuarios
-CREATE TABLE usuarios (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tipo_usuario_id INT NOT NULL DEFAULT 4,
-    rut VARCHAR(12) UNIQUE,
-    nombre VARCHAR(100) NOT NULL,
-    apellido_paterno VARCHAR(50) NOT NULL,
-    apellido_materno VARCHAR(50),
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    telefono VARCHAR(15),
-    direccion TEXT,
-    fecha_nacimiento DATE,
-    genero ENUM('M', 'F', 'NB', 'Prefiero no decir') DEFAULT 'Prefiero no decir',
-    avatar VARCHAR(255),
-    nivel INT DEFAULT 1,
-    xp INT DEFAULT 0,
-    puntos INT DEFAULT 0,
-    racha INT DEFAULT 0,
-    ultimo_acceso TIMESTAMP NULL,
-    activo BOOLEAN DEFAULT TRUE,
-    email_verificado BOOLEAN DEFAULT FALSE,
-    es_premium BOOLEAN DEFAULT FALSE,
-    fecha_suscripcion DATE NULL,
-    fecha_expiracion DATE NULL,
-    plan VARCHAR(50) DEFAULT 'gratis',
-    foto_perfil VARCHAR(255) NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (tipo_usuario_id) REFERENCES tipos_usuario(id) ON DELETE RESTRICT,
-    INDEX idx_usuarios_email (email),
-    INDEX idx_usuarios_rut (rut),
-    INDEX idx_usuarios_nivel (nivel),
-    INDEX idx_usuarios_activo (activo)
-);
-
--- 2.3 Perfiles de Estudiante
-CREATE TABLE perfiles_estudiante (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    usuario_id INT NOT NULL UNIQUE,
-    establecimiento VARCHAR(200),
-    curso VARCHAR(20),
-    anio_ingreso YEAR,
-    nivel_educativo ENUM('Básica', 'Media', 'Superior', 'Otro') DEFAULT 'Media',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
-);
-
--- 2.4 Perfiles de Docente
-CREATE TABLE perfiles_docente (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    usuario_id INT NOT NULL UNIQUE,
-    especialidad VARCHAR(200),
-    anos_experiencia INT DEFAULT 0,
-    establecimiento VARCHAR(200),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
-);
-
--- 2.5 Perfiles de Administrador
-CREATE TABLE perfiles_admin (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    usuario_id INT NOT NULL UNIQUE,
-    rol_administrativo VARCHAR(100),
-    permisos JSON,
-    area VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
-);
-
--- =============================================
--- 3. TABLAS DE AUTORIDADES
--- =============================================
-
-CREATE TABLE tipos_autoridad (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL UNIQUE,
-    descripcion TEXT,
-    nivel_jerarquico INT DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-CREATE TABLE autoridades (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tipo_autoridad_id INT NOT NULL,
-    nombre VARCHAR(100) NOT NULL,
-    apellido_paterno VARCHAR(50),
-    apellido_materno VARCHAR(50),
-    cargo VARCHAR(100) NOT NULL,
-    foto VARCHAR(255),
-    descripcion_cargo TEXT,
-    biografia TEXT,
-    partido VARCHAR(100),
-    fecha_inicio DATE,
-    fecha_fin DATE,
-    activo BOOLEAN DEFAULT TRUE,
-    prioridad INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (tipo_autoridad_id) REFERENCES tipos_autoridad(id) ON DELETE RESTRICT
-);
-
-CREATE TABLE funciones_autoridad (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    autoridad_id INT NOT NULL,
-    descripcion TEXT NOT NULL,
-    orden INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (autoridad_id) REFERENCES autoridades(id) ON DELETE CASCADE
-);
-
--- =============================================
--- 4. TABLAS DE PROPUESTAS
--- =============================================
-
-CREATE TABLE propuestas (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    autoridad_id INT NOT NULL,
-    titulo VARCHAR(200) NOT NULL,
-    descripcion TEXT,
-    explicacion TEXT,
-    impacto_personal TEXT,
-    fuente_oficial VARCHAR(255),
-    fecha_publicacion DATE,
-    estado ENUM('Borrador', 'Publicada', 'Archivada', 'En proceso', 'En tramitación', 'En preparación') DEFAULT 'Borrador',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (autoridad_id) REFERENCES autoridades(id) ON DELETE CASCADE
-);
-
--- =============================================
--- 5. TABLAS DE LECCIONES Y APRENDIZAJE
--- =============================================
-
-CREATE TABLE mundos_aprendizaje (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    icono VARCHAR(50),
-    descripcion TEXT,
-    nivel_minimo INT DEFAULT 1,
-    xp_requerido INT DEFAULT 0,
-    orden INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-CREATE TABLE lecciones (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    mundo_id INT NOT NULL,
-    titulo VARCHAR(200) NOT NULL,
-    icono VARCHAR(50),
-    situacion_inicial TEXT,
-    explicacion TEXT,
-    explicacion_porque TEXT,
-    explicacion_quien TEXT,
-    ejemplo TEXT,
-    historia TEXT,
-    curiosidad TEXT,
-    reflexion TEXT,
-    xp INT DEFAULT 50,
-    nivel ENUM('Básico', 'Intermedio', 'Avanzado') DEFAULT 'Intermedio',
-    duracion_estimada INT DEFAULT 10,
-    orden INT DEFAULT 0,
-    activo BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (mundo_id) REFERENCES mundos_aprendizaje(id) ON DELETE CASCADE
-);
-
-CREATE TABLE actividades_leccion (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    leccion_id INT NOT NULL,
-    tipo ENUM('Alternativas', 'Ordenar', 'Relacionar', 'Arrastrar', 'Falso_Verdadero', 'Completar', 'Interpretar') DEFAULT 'Alternativas',
-    pregunta TEXT NOT NULL,
-    opciones JSON,
-    respuesta_correcta JSON,
-    explicacion TEXT,
-    orden INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (leccion_id) REFERENCES lecciones(id) ON DELETE CASCADE
-);
-
-CREATE TABLE preguntas_cuestionario (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    leccion_id INT NOT NULL,
-    pregunta TEXT NOT NULL,
-    orden INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (leccion_id) REFERENCES lecciones(id) ON DELETE CASCADE
-);
-
-CREATE TABLE opciones_pregunta (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    pregunta_id INT NOT NULL,
-    opcion TEXT NOT NULL,
-    es_correcta BOOLEAN DEFAULT FALSE,
-    orden INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (pregunta_id) REFERENCES preguntas_cuestionario(id) ON DELETE CASCADE
-);
-
--- =============================================
--- 6. TABLAS DE PROGRESO Y LOGROS
--- =============================================
-
-CREATE TABLE progreso_lecciones (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    usuario_id INT NOT NULL,
-    leccion_id INT NOT NULL,
-    completada BOOLEAN DEFAULT FALSE,
-    puntaje INT DEFAULT 0,
-    intentos INT DEFAULT 0,
-    tiempo_invertido INT DEFAULT 0,
-    fecha_completada TIMESTAMP NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    FOREIGN KEY (leccion_id) REFERENCES lecciones(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_progreso (usuario_id, leccion_id)
-);
-
-CREATE TABLE insignias (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    icono VARCHAR(50),
-    descripcion TEXT,
-    xp_requerido INT DEFAULT 0,
-    lecciones_requeridas INT DEFAULT 0,
-    nivel_requerido INT DEFAULT 0,
-    rareza ENUM('Común', 'Poco común', 'Rara', 'Épica', 'Legendaria') DEFAULT 'Común',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-CREATE TABLE insignias_obtenidas (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    usuario_id INT NOT NULL,
-    insignia_id INT NOT NULL,
-    fecha_obtenida TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    FOREIGN KEY (insignia_id) REFERENCES insignias(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_insignia_usuario (usuario_id, insignia_id)
-);
-
-CREATE TABLE niveles (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nivel INT NOT NULL UNIQUE,
-    nombre VARCHAR(50) NOT NULL,
-    xp_requerido INT NOT NULL,
-    icono VARCHAR(50),
-    descripcion TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- =============================================
--- 7. TABLAS DE SIMULACIONES
--- =============================================
-
-CREATE TABLE campanas_simulacion (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    titulo VARCHAR(200) NOT NULL,
-    descripcion TEXT,
-    dificultad ENUM('Básico', 'Intermedio', 'Avanzado') DEFAULT 'Intermedio',
-    introduccion JSON,
-    escenas JSON,
-    finales JSON,
-    eventos JSON,
-    duracion_estimada INT DEFAULT 15,
-    xp_recompensa INT DEFAULT 100,
-    activa BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-CREATE TABLE progreso_simulacion (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    usuario_id INT NOT NULL,
-    campana_id INT NOT NULL,
-    escena_actual INT DEFAULT 1,
-    indicadores JSON,
-    decisiones JSON,
-    historial JSON,
-    completada BOOLEAN DEFAULT FALSE,
-    puntaje_total INT DEFAULT 0,
-    tiempo_total INT DEFAULT 0,
-    fecha_inicio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    fecha_completada TIMESTAMP NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    FOREIGN KEY (campana_id) REFERENCES campanas_simulacion(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_progreso_sim (usuario_id, campana_id)
-);
-
--- =============================================
--- 8. TABLAS DE NOTICIAS Y CONTENIDO
--- =============================================
-
-CREATE TABLE noticias (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    titulo VARCHAR(200) NOT NULL,
-    descripcion TEXT,
-    contenido TEXT,
-    fecha DATE,
-    icono VARCHAR(50),
-    url VARCHAR(255),
-    imagen VARCHAR(255),
-    categoria VARCHAR(50),
-    activa BOOLEAN DEFAULT TRUE,
-    destacada BOOLEAN DEFAULT FALSE,
-    fecha_publicacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-CREATE TABLE contenido_generado (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tipo ENUM('leccion', 'simulacion', 'historia') NOT NULL,
-    titulo VARCHAR(200) NOT NULL,
-    contenido JSON NOT NULL,
-    creado_por INT NULL,
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    publicado BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
-    INDEX idx_contenido_tipo (tipo),
-    INDEX idx_contenido_publicado (publicado)
-);
-
--- =============================================
--- 9. TABLA DE ESTABLECIMIENTOS
--- =============================================
-
-CREATE TABLE establecimientos (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(200) NOT NULL,
-    tipo ENUM('Municipal', 'Particular Subvencionado', 'Particular Pagado', 'Corporación') DEFAULT 'Municipal',
-    direccion TEXT,
-    comuna VARCHAR(100),
-    region VARCHAR(100),
-    telefono VARCHAR(15),
-    email VARCHAR(100),
-    niveles_educativos JSON,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- =============================================
--- 10. TABLAS DE TAREAS Y DESCARGAS
--- =============================================
-
--- 10.1 Tareas
-CREATE TABLE tareas (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    titulo VARCHAR(200) NOT NULL,
-    descripcion TEXT NOT NULL,
-    archivo_url VARCHAR(500),
-    creado_por INT,
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
-);
-
--- 10.2 Entregas de tareas
-CREATE TABLE entregas_tareas (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tarea_id INT NOT NULL,
-    profesor_id INT NOT NULL,
-    archivo_entregado VARCHAR(500),
-    comentario_entrega TEXT,
-    fecha_entrega TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    calificacion DECIMAL(5,2),
-    comentario_calificacion TEXT,
-    revisado_por INT,
-    FOREIGN KEY (tarea_id) REFERENCES tareas(id) ON DELETE CASCADE,
-    FOREIGN KEY (profesor_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    FOREIGN KEY (revisado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
-    UNIQUE KEY unique_entrega (tarea_id, profesor_id),
-    INDEX idx_entregas_tarea (tarea_id)
-);
-
--- 10.3 Descargas
-CREATE TABLE descargas (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    titulo VARCHAR(200) NOT NULL,
-    descripcion TEXT,
-    archivo_url VARCHAR(500),
-    categoria VARCHAR(50),
-    activo BOOLEAN DEFAULT TRUE,
-    creado_por INT,
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
-    INDEX idx_descargas_activo (activo)
-);
-
--- =============================================
--- 11. TABLAS DE SALAS DE CLASE
--- =============================================
-
-CREATE TABLE salas_clase (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    descripcion TEXT,
-    codigo_acceso VARCHAR(10) UNIQUE NOT NULL,
-    profesor_id INT NOT NULL,
-    creada_en DATETIME DEFAULT CURRENT_TIMESTAMP,
-    activa BOOLEAN DEFAULT TRUE,
-    FOREIGN KEY (profesor_id) REFERENCES usuarios(id) ON DELETE CASCADE
-);
-
-CREATE TABLE sala_alumnos (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    sala_id INT NOT NULL,
-    alumno_id INT NOT NULL,
-    fecha_ingreso DATETIME DEFAULT CURRENT_TIMESTAMP,
-    activo BOOLEAN DEFAULT TRUE,
-    FOREIGN KEY (sala_id) REFERENCES salas_clase(id) ON DELETE CASCADE,
-    FOREIGN KEY (alumno_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_sala_alumno (sala_id, alumno_id)
-);
-
-CREATE TABLE sala_progreso (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    sala_id INT NOT NULL,
-    alumno_id INT NOT NULL,
-    leccion_id INT NOT NULL,
-    completada BOOLEAN DEFAULT FALSE,
-    fecha_completada DATETIME NULL,
-    puntaje INT DEFAULT 0,
-    FOREIGN KEY (sala_id) REFERENCES salas_clase(id) ON DELETE CASCADE,
-    FOREIGN KEY (alumno_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    FOREIGN KEY (leccion_id) REFERENCES lecciones(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_progreso (sala_id, alumno_id, leccion_id)
-);
-
--- =============================================
--- 12. TABLAS DE CARTAS DE EVENTO Y RUTAS (CON CAMPOS CONTEXTUALES)
--- =============================================
-
--- 12.1 Cartas de Evento (con campos para contexto por simulación)
-CREATE TABLE cartas_evento (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    titulo VARCHAR(200) NOT NULL,
-    descripcion TEXT NOT NULL,
-    icono VARCHAR(50) DEFAULT 'bolt',
-    tipo VARCHAR(50) DEFAULT 'sorpresa',
-    efectos JSON,
-    mensaje_visible TEXT,
-    probabilidad DECIMAL(3,2) DEFAULT 0.15,
-    activa BOOLEAN DEFAULT TRUE,
-    creado_por INT,
-    creada_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    -- 👇 CAMPOS PARA CONTEXTUALIZAR LAS CARTAS
-    campana_id INT NULL COMMENT 'ID de la simulación específica. NULL = aparece en todas',
-    escenas_validas JSON NULL COMMENT 'Array de escenas donde puede aparecer. NULL = todas',
-    contexto VARCHAR(50) DEFAULT 'general' COMMENT 'Contexto de la carta',
-    FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
-    FOREIGN KEY (campana_id) REFERENCES campanas_simulacion(id) ON DELETE CASCADE,
-    INDEX idx_cartas_activa (activa),
-    INDEX idx_cartas_campana (campana_id)
-);
-
--- 12.2 Rutas Alternativas
-CREATE TABLE rutas_alternativas (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    carta_id INT NOT NULL,
-    escena_id INT NOT NULL,
-    nuevo_contexto TEXT NOT NULL,
-    nuevo_problema TEXT NOT NULL,
-    opciones JSON NOT NULL,
-    siguiente_escena INT NOT NULL,
-    creada_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (carta_id) REFERENCES cartas_evento(id) ON DELETE CASCADE,
-    INDEX idx_rutas_carta (carta_id),
-    INDEX idx_rutas_escena (escena_id)
-);
-
--- =============================================
--- 13. VISTAS ÚTILES
--- =============================================
-
-CREATE VIEW v_usuarios_completos AS
-SELECT 
-    u.id,
-    u.nombre,
-    u.apellido_paterno,
-    u.email,
-    u.nivel,
-    u.xp,
-    u.activo,
-    tu.nombre as tipo_usuario,
-    tu.nivel_acceso,
-    pe.establecimiento,
-    pe.curso,
-    pe.nivel_educativo,
-    pd.especialidad,
-    pd.anos_experiencia,
-    pa.rol_administrativo
-FROM usuarios u
-LEFT JOIN tipos_usuario tu ON u.tipo_usuario_id = tu.id
-LEFT JOIN perfiles_estudiante pe ON u.id = pe.usuario_id
-LEFT JOIN perfiles_docente pd ON u.id = pd.usuario_id
-LEFT JOIN perfiles_admin pa ON u.id = pa.usuario_id;
-
-CREATE VIEW v_progreso_usuarios AS
-SELECT 
-    u.id as usuario_id,
-    u.nombre,
-    u.apellido_paterno,
-    u.nivel,
-    u.xp,
-    COUNT(DISTINCT pl.leccion_id) as lecciones_completadas,
-    COUNT(DISTINCT io.insignia_id) as insignias_obtenidas,
-    SUM(pl.puntaje) as puntaje_total
-FROM usuarios u
-LEFT JOIN progreso_lecciones pl ON u.id = pl.usuario_id AND pl.completada = TRUE
-LEFT JOIN insignias_obtenidas io ON u.id = io.usuario_id
-GROUP BY u.id, u.nombre, u.apellido_paterno, u.nivel, u.xp;
-
--- =============================================
--- 14. DATOS INICIALES (SEEDS)
--- =============================================
-
--- 14.1 Tipos de Usuario
-INSERT INTO tipos_usuario (nombre, descripcion, nivel_acceso) VALUES
-('Super Admin', 'Acceso total al sistema', 5),
-('Admin', 'Acceso a gestión de contenido', 4),
-('Docente', 'Acceso a creación de contenido educativo', 3),
-('Estudiante', 'Acceso a consumo de contenido', 2),
-('Invitado', 'Acceso limitado a contenido público', 1);
-
--- 14.2 Tipos de Autoridad
-INSERT INTO tipos_autoridad (nombre, descripcion, nivel_jerarquico) VALUES
-('Presidente', 'Jefe de Estado y Gobierno', 1),
-('Ministro', 'Jefe de cartera ministerial', 2),
-('Senador', 'Miembro del Senado', 3),
-('Diputado', 'Miembro de la Cámara de Diputados', 3),
-('Alcalde', 'Jefe de municipalidad', 4),
-('Gobernador', 'Jefe de región', 4);
-
--- 14.3 Autoridades Actualizadas 2026
-INSERT INTO autoridades (tipo_autoridad_id, nombre, apellido_paterno, cargo, descripcion_cargo, partido, activo, prioridad) VALUES
-(1, 'José Antonio', 'Kast', 'Presidente de la República', 'Jefe de Estado y de Gobierno de Chile. Dirige el Gobierno y la administración del Estado.', 'Republicano', TRUE, 10),
-(2, 'Paulina', 'Núñez', 'Presidenta del Senado', 'Preside la Cámara Alta, representa al Senado y dirige el debate y votación de las leyes.', 'Renovación Nacional', TRUE, 9),
-(3, 'Jorge', 'Alessandri', 'Presidente de la Cámara de Diputados', 'Preside la Cámara Baja, coordina la labor parlamentaria y fiscaliza los actos del Ejecutivo.', 'UDI', TRUE, 8),
-(4, 'Gloria Ana', 'Chevesich', 'Presidenta de la Corte Suprema', 'Encabeza el máximo tribunal del país y representa la administración del sistema de justicia.', 'Independiente', TRUE, 7);
-
--- 14.4 Funciones de Autoridades
-INSERT INTO funciones_autoridad (autoridad_id, descripcion, orden) VALUES
-(1, 'Representar al país en el ámbito internacional', 1),
-(1, 'Dirigir el gobierno y la administración del Estado', 2),
-(1, 'Promulgar las leyes', 3),
-(1, 'Nombrar a los ministros', 4),
-(2, 'Presidir las sesiones del Senado', 1),
-(2, 'Representar al Senado en actos oficiales', 2),
-(2, 'Dirigir el debate y votación de las leyes', 3),
-(3, 'Presidir las sesiones de la Cámara de Diputados', 1),
-(3, 'Coordinar el trabajo legislativo', 2),
-(3, 'Fiscalizar los actos del Ejecutivo', 3);
-
--- 14.5 Propuestas de Ejemplo
-INSERT INTO propuestas (autoridad_id, titulo, descripcion, estado) VALUES
-(1, 'Plan Control Fronterizo', 'Refuerzo militar y tecnológico en la frontera norte', 'Publicada'),
-(1, 'Bono de Apoyo Familiar', '$30.000 por hijo para familias vulnerables', 'Publicada'),
-(2, 'Ley de Participación Ciudadana', 'Fortalecer la democracia participativa', 'En tramitación'),
-(3, 'Ley de Presupuestos 2027', 'Distribución de recursos del país', 'En preparación');
-
--- 14.6 Mundos de Aprendizaje
-INSERT INTO mundos_aprendizaje (nombre, icono, descripcion, nivel_minimo, orden) VALUES
-('Soy Ciudadano', 'user-graduate', 'Aprende sobre tus derechos, deberes y cómo participar activamente en tu comunidad', 1, 1),
-('Cómo funciona Chile', 'landmark', 'Descubre cómo se organiza el Estado chileno y cómo se toman las decisiones', 2, 2),
-('El Presidente', 'user-tie', 'Conoce el rol del Presidente de la República y sus funciones', 3, 3),
-('Poder Legislativo', 'gavel', 'Entiende cómo se crean las leyes y el rol del Congreso Nacional', 2, 4),
-('Poder Judicial', 'balance-scale', 'Aprende sobre el sistema judicial y la justicia en Chile', 3, 5),
-('Participación Ciudadana', 'handshake', 'Descubre las formas de participación ciudadana en democracia', 1, 6);
-
--- 14.7 Insignias
-INSERT INTO insignias (nombre, icono, descripcion, xp_requerido, lecciones_requeridas, rareza) VALUES
-('Nuevo Ciudadano', 'star', 'Completaste tu primera lección', 0, 1, 'Común'),
-('Aprendiz Activo', 'book', 'Completaste 5 lecciones', 250, 5, 'Poco común'),
-('Experto Cívico', 'crown', 'Completaste 10 lecciones', 500, 10, 'Rara'),
-('Líder Comunitario', 'users', 'Completaste todas las lecciones de "Soy Ciudadano"', 0, 3, 'Poco común'),
-('Conocedor del Estado', 'building', 'Completaste todas las lecciones de "Cómo funciona Chile"', 0, 2, 'Rara'),
-('Participante Activo', 'handshake', 'Completaste tu primera simulación', 0, 0, 'Común'),
-('Estratega', 'chess-queen', 'Completaste 3 simulaciones', 300, 0, 'Rara'),
-('Maestro Cívico', 'graduation-cap', 'Alcanzaste el nivel 5', 750, 15, 'Épica'),
-('Leyenda', 'crown', 'Alcanzaste el nivel 10', 2000, 30, 'Legendaria');
-
--- 14.8 Niveles
-INSERT INTO niveles (nivel, nombre, xp_requerido, icono, descripcion) VALUES
-(1, 'Ciudadano Novato', 0, 'seedling', 'Comienza tu viaje cívico'),
-(2, 'Ciudadano Aprendiz', 100, 'sprout', 'Descubriendo el mundo cívico'),
-(3, 'Ciudadano Activo', 300, 'leaf', 'Participando activamente'),
-(4, 'Ciudadano Informado', 600, 'tree', 'Conociendo el sistema'),
-(5, 'Ciudadano Participativo', 1000, 'mountain', 'Participando en democracia'),
-(6, 'Ciudadano Comprometido', 1500, 'star', 'Comprometido con el país'),
-(7, 'Ciudadano Líder', 2100, 'trophy', 'Liderando el cambio'),
-(8, 'Ciudadano Experto', 2800, 'crown', 'Experto en ciudadanía'),
-(9, 'Maestro Cívico', 3600, 'gem', 'Maestro de la educación cívica'),
-(10, 'Leyenda Cívica', 4500, 'diamond', 'Leyenda de la educación cívica');
-
--- =============================================
--- 15. USUARIOS DE PRUEBA (TODOS CON SUS TIPOS)
--- =============================================
-
-INSERT INTO usuarios (tipo_usuario_id, nombre, apellido_paterno, email, password, nivel, xp) VALUES
--- Super Admin (tipo 1)
-(1, 'Administrador', 'Sistema', 'admin@politicore.cl', 'admin123', 1, 0),
-
--- Admin (tipo 2)
-(2, 'Gestor', 'Contenido', 'gestor@politicore.cl', 'gestor123', 1, 0),
-
--- Docentes (tipo 3)
-(3, 'Prof. Ana', 'Martínez', 'ana@docente.cl', 'password123', 1, 0),
-(3, 'Prof. Carlos', 'Reyes', 'carlos@docente.cl', 'password123', 1, 0),
-(3, 'Prof. Laura', 'Fernández', 'laura@docente.cl', 'password123', 1, 0),
-
--- Estudiantes (tipo 4)
-(4, 'Juan', 'Pérez', 'juan@estudiante.cl', 'password123', 1, 0),
-(4, 'María', 'González', 'maria@estudiante.cl', 'password123', 1, 0),
-(4, 'Usuario', 'Prueba', 'test@politicore.cl', 'test123', 1, 0),
-(4, 'Pedro', 'Silva', 'pedro@estudiante.cl', 'password123', 1, 0),
-(4, 'Camila', 'Torres', 'camila@estudiante.cl', 'password123', 1, 0);
-
--- =============================================
--- 16. NOTICIAS ACTUALIZADAS (Julio 2026)
--- =============================================
-
-INSERT INTO noticias (titulo, descripcion, fecha, icono, activa, destacada) VALUES
-('Megarreforma económica avanza en el Senado', 'El proyecto de ley que rebaja el impuesto a empresas del 27% al 23% y promueve incentivos laborales quedó en discusión clave. La votación final fue aplazada para agosto.', '2026-07-29', 'landmark', TRUE, TRUE),
-('Presidente Kast mantiene Estado de Catástrofe en Coquimbo y Huasco', 'El mandatario mantiene el Decreto de Excepción tras el temporal que dejó damnificados y pérdidas millonarias.', '2026-07-28', 'cloud-rain', TRUE, TRUE),
-('Gobierno refuerza control fronterizo en el norte', 'El Ministerio del Interior intensifica la presencia de las Fuerzas Armadas en pasos fronterizos para mantener la seguridad interna.', '2026-07-27', 'shield-alt', TRUE, FALSE);
-
--- =============================================
--- 17. SIMULACIONES DE EJEMPLO
--- =============================================
-
-INSERT INTO campanas_simulacion (titulo, descripcion, dificultad, introduccion, escenas, finales, eventos, xp_recompensa, activa) VALUES
-('Soy Ciudadano', 'Participa en tu primera experiencia cívica como Presidente del Centro de Estudiantes', 'Intermedio', 
-'{"contexto": "Eres estudiante de último año y te postulaste como Presidente del Centro de Estudiantes. Ganaste las elecciones con el 60% de los votos.", "personajes": [{"nombre": "Sra. Patricia", "rol": "Directora", "opinion": "Prefiere mantener el orden"}, {"nombre": "Javier", "rol": "Estudiante", "opinion": "Quiere cambios radicales"}], "objetivo": "Gestionar el Centro de Estudiantes"}', 
-'[{"id": 1, "tipo": "decision", "contexto": "Tu primera semana como Presidente. Los estudiantes te piden organizar una manifestación.", "opciones": [{"texto": "Organizar la manifestación", "consecuencias": {"Participacion": 8, "Confianza": 5}}, {"texto": "Buscar diálogo con la Directora", "consecuencias": {"Confianza": 6, "Participacion": 3}}]}]', 
-'[{"condiciones": "Participacion > 50", "texto": "Lograste movilizar a los estudiantes.", "reflexion": "La participación ciudadana es fundamental."}]', 
-'[{"trigger": 2, "titulo": "Corte de agua", "descripcion": "El colegio no tiene agua por una fuga."}]', 
-100, TRUE),
-
-('Presupuesto Municipal', 'Toma decisiones sobre el presupuesto de tu comuna y gestiona los recursos públicos', 'Avanzado',
-'{"contexto": "Has sido elegido como Alcalde de tu comuna. Debes gestionar el presupuesto municipal para el próximo año.", "personajes": [{"nombre": "Sra. Claudia", "rol": "Administradora Municipal", "opinion": "Quiere mantener el gasto"}, {"nombre": "Vecinos", "rol": "Comunidad", "opinion": "Quieren más inversión social"}], "objetivo": "Gestionar el presupuesto municipal"}',
-'[{"id": 1, "tipo": "decision", "contexto": "Tu primera reunión de presupuesto. Hay $10.000.000 para distribuir.", "opciones": [{"texto": "Invertir en infraestructura", "consecuencias": {"Economia": 10, "Seguridad": 5}}, {"texto": "Invertir en educación", "consecuencias": {"Educacion": 10, "Participacion": 5}}, {"texto": "Invertir en salud", "consecuencias": {"Seguridad": 10, "Confianza": 5}}]}]',
-'[{"condiciones": "Economia > 50", "texto": "Gestionaste bien los recursos.", "reflexion": "La gestión de recursos es clave."}]',
-'[{"trigger": 2, "titulo": "Emergencia", "descripcion": "Una emergencia requiere fondos adicionales."}]',
-120, TRUE);
-
--- =============================================
--- 18. ESTABLECIMIENTOS
--- =============================================
-
-INSERT INTO establecimientos (nombre, tipo, comuna, region) VALUES
-('Liceo A-1', 'Municipal', 'Santiago', 'Metropolitana'),
-('Colegio San Ignacio', 'Particular Pagado', 'Providencia', 'Metropolitana'),
-('Liceo Industrial', 'Particular Subvencionado', 'Concepción', 'Biobío');
-
--- =============================================
--- 19. CARTAS DE EVENTO CONTEXTUALES Y RUTAS
--- =============================================
-
--- 19.1 CARTAS GENERALES (aparecen en TODAS las simulaciones)
-INSERT INTO cartas_evento (titulo, descripcion, icono, tipo, efectos, mensaje_visible, probabilidad, campana_id, escenas_validas, contexto) VALUES
-('📱 Rumor viral', 'Un rumor falso sobre la situación se ha vuelto viral en redes sociales.', 'virus', 'sorpresa', 
- '{"Confianza": -8, "Participacion": 4}', 
- '¡Rumor viral! Las redes sociales están hablando mal de la situación.', 0.08, NULL, NULL, 'general'),
-
-('🎉 Día festivo inesperado', 'El gobierno decreta un día festivo inesperado. La gente está contenta.', 'party-horn', 'oportunidad', 
- '{"Felicidad": 8, "Confianza": 3, "Economia": -2}', 
- '¡Día festivo! La gente está contenta.', 0.06, NULL, NULL, 'general');
-
--- 19.2 CARTAS PARA SIMULACIÓN "Soy Ciudadano" (campana_id = 1)
-INSERT INTO cartas_evento (titulo, descripcion, icono, tipo, efectos, mensaje_visible, probabilidad, campana_id, escenas_validas, contexto) VALUES
-('🌋 ¡Erupción del volcán!', 
- 'El volcán cercano ha entrado en actividad. El paseo de curso queda suspendido y hay que evacuar algunas zonas.', 
- 'volcano', 'crisis', 
- '{"Participacion": -5, "Confianza": 3, "Seguridad": 8}', 
- '¡Alerta volcánica! El paseo de curso se suspende por seguridad.', 
- 0.12, 1, '[3, 6, 9]', 'colegio'),
-
-('🦆 El Pato Presidente desapareció', 
- 'La mascota del colegio, el Pato Presidente, ha desaparecido. Todo el colegio está buscándolo.', 
- 'duck', 'sorpresa', 
- '{"Participacion": 6, "Confianza": 4, "Seguridad": -2}', 
- '¡El Pato Presidente desapareció! Todos lo están buscando.', 
- 0.10, 1, '[2, 5, 8]', 'colegio'),
-
-('🎤 Visita del periodista', 
- 'Un periodista local quiere entrevistarte en representación del colegio para hablar sobre los logros estudiantiles.', 
- 'microphone', 'oportunidad', 
- '{"Confianza": 7, "Participacion": 5, "Educacion": 3}', 
- '¡Un periodista quiere entrevistarte! Prepárate para hablar del colegio.', 
- 0.10, 1, '[4, 7, 10]', 'colegio'),
-
-('🎮 Torneo de videojuegos', 
- 'Un grupo de estudiantes propone organizar un torneo de videojuegos para recaudar fondos. La Directora no está segura.', 
- 'gamepad', 'oportunidad', 
- '{"Participacion": 7, "Economia": 4, "Confianza": 3}', 
- '¡Torneo de videojuegos! Los estudiantes quieren organizarlo.', 
- 0.10, 1, '[3, 6, 9]', 'colegio'),
-
-('🌧️ Lluvias torrenciales', 
- 'Fuertes lluvias han afectado la comuna. El colegio está incomunicado y hay que suspender clases.', 
- 'cloud-rain', 'crisis', 
- '{"Seguridad": 8, "Educacion": -4, "Participacion": 2}', 
- '¡Lluvias torrenciales! El colegio está incomunicado.', 
- 0.12, 1, '[2, 4, 8]', 'colegio'),
-
-('📊 Crisis económica en el centro', 
- 'El centro de estudiantes enfrenta una crisis económica. No hay fondos para las actividades planificadas.', 
- 'chart-line', 'crisis', 
- '{"Economia": -10, "Confianza": -5, "Participacion": 3}', 
- '¡Crisis económica! El centro de estudiantes no tiene fondos.', 
- 0.08, 1, '[4, 6, 8]', 'colegio');
-
--- 19.3 CARTAS PARA SIMULACIÓN "Presupuesto Municipal" (campana_id = 2)
-INSERT INTO cartas_evento (titulo, descripcion, icono, tipo, efectos, mensaje_visible, probabilidad, campana_id, escenas_validas, contexto) VALUES
-('🌧️ Inundación en la comuna', 
- 'Fuertes lluvias han causado inundaciones en varias zonas de la comuna. Se necesitan recursos de emergencia.', 
- 'cloud-rain', 'crisis', 
- '{"Seguridad": -8, "Economia": -5, "Confianza": 3}', 
- '¡Inundación! Se necesitan recursos de emergencia.', 
- 0.15, 2, '[2, 3, 4]', 'municipal'),
-
-('🏗️ Proyecto de infraestructura federal', 
- 'El gobierno central anuncia un proyecto de infraestructura para tu comuna. Hay que gestionar los recursos.', 
- 'building', 'oportunidad', 
- '{"Economia": 10, "Confianza": 5, "Seguridad": 3}', 
- '¡Proyecto de infraestructura! El gobierno central invertirá en la comuna.', 
- 0.10, 2, '[5, 6, 7]', 'municipal'),
-
-('👥 Protesta de vecinos', 
- 'Los vecinos protestan por el mal estado de las calles. Exigen que el presupuesto se use para reparaciones.', 
- 'users', 'crisis', 
- '{"Participacion": 8, "Confianza": -4, "Seguridad": -3}', 
- '¡Protesta de vecinos! Exigen reparación de calles.', 
- 0.12, 2, '[3, 5, 8]', 'municipal'),
-
-('💰 Donación anónima', 
- 'Un empresario local dona $5.000.000 para la comuna sin condiciones.', 
- 'money-bill', 'oportunidad', 
- '{"Economia": 15, "Confianza": 3, "Participacion": 2}', 
- '¡Donación anónima! $5.000.000 para la comuna.', 
- 0.08, 2, '[4, 6, 9]', 'municipal'),
-
-('🚰 Crisis de agua potable', 
- 'La comuna enfrenta una crisis de agua potable. Hay que tomar medidas urgentes.', 
- 'water', 'crisis', 
- '{"Seguridad": -10, "Economia": -5, "Confianza": -3}', 
- '¡Crisis de agua! Hay que tomar medidas urgentes.', 
- 0.10, 2, '[3, 5, 7]', 'municipal');
-
--- 19.4 RUTAS ALTERNATIVAS PARA LAS CARTAS
-INSERT INTO rutas_alternativas (carta_id, escena_id, nuevo_contexto, nuevo_problema, opciones, siguiente_escena) VALUES
--- Ruta para Erupción del volcán (carta_id = 3, escena 3)
-(3, 3, 
- 'La erupción del volcán ha causado que se suspenda el paseo de curso. Los estudiantes están muy enojados porque esperaban este paseo todo el año.',
- 'Los estudiantes han organizado una protesta pacífica en el patio principal. Exigen que se reprograme el paseo o que se les compense de alguna forma. La Directora te pide que manejes la situación.',
- '[
-    {"texto": "Prometer reprogramar el paseo para el próximo mes", "consecuencias": {"Confianza": 7, "Participacion": 5, "Economia": -4}},
-    {"texto": "Ofrecer una actividad alternativa dentro del colegio", "consecuencias": {"Participacion": 4, "Confianza": 3, "Educacion": 5}},
-    {"texto": "Explicar que es por seguridad y no se puede hacer nada", "consecuencias": {"Confianza": -6, "Participacion": -4, "Seguridad": 3}}
- ]', 
- 4),
-
--- Ruta para El Pato Presidente (carta_id = 4, escena 5)
-(4, 5,
- 'La desaparición del Pato Presidente ha causado revuelo en el colegio. Los estudiantes están organizando brigadas de búsqueda.',
- 'Un grupo de estudiantes encontró al Pato Presidente en el patio trasero, pero está asustado y no quiere salir. Los estudiantes te piden ayuda para rescatarlo. Además, apareció un cartel ofreciendo recompensa por el pato.',
- '[
-    {"texto": "Ir personalmente a rescatar al pato", "consecuencias": {"Confianza": 8, "Participacion": 5, "Seguridad": 2}},
-    {"texto": "Pedir ayuda a los profesores para el rescate", "consecuencias": {"Confianza": 5, "Seguridad": 4, "Participacion": 3}},
-    {"texto": "Dejar que los estudiantes lo rescaten solos", "consecuencias": {"Participacion": 6, "Confianza": -3, "Seguridad": -4}}
- ]', 
- 6),
-
--- Ruta para Visita del periodista (carta_id = 5, escena 7)
-(5, 7,
- 'El periodista ha publicado un artículo sobre el colegio. El artículo ha tenido mucha repercusión y ahora quieren hacer un reportaje en vivo desde el colegio.',
- 'El periodista quiere hacer una entrevista en vivo desde el colegio, pero los estudiantes están nerviosos. Algunos quieren hablar, otros no. La Directora te pide que organices todo.',
- '[
-    {"texto": "Permitir que los estudiantes participen voluntariamente", "consecuencias": {"Participacion": 8, "Confianza": 6, "Seguridad": 2}},
-    {"texto": "Seleccionar tú a los estudiantes que hablarán", "consecuencias": {"Confianza": 4, "Seguridad": 5, "Participacion": 3}},
-    {"texto": "Cancelar el reportaje y hacer una declaración escrita", "consecuencias": {"Confianza": -4, "Participacion": -3, "Seguridad": 6}}
- ]', 
- 8),
-
--- Ruta para Torneo de videojuegos (carta_id = 6, escena 9)
-(6, 9,
- 'El torneo de videojuegos ha sido un éxito, pero ha generado polémica. Algunos padres creen que es una pérdida de tiempo.',
- 'Los padres están organizando una reunión para pedir que se cancelen eventos como este. Los estudiantes están molestos y se sienten atacados.',
- '[
-    {"texto": "Defender el torneo y explicar sus beneficios", "consecuencias": {"Confianza": 7, "Participacion": 6, "Seguridad": -3}},
-    {"texto": "Negociar con los padres para mantener el torneo", "consecuencias": {"Confianza": 5, "Participacion": 4, "Seguridad": 4}},
-    {"texto": "Cancelar el torneo para evitar conflictos", "consecuencias": {"Confianza": -6, "Participacion": -8, "Seguridad": 6}}
- ]', 
- 10),
-
--- Ruta para Lluvias torrenciales (carta_id = 7, escena 2)
-(7, 2,
- 'Las lluvias han causado daños en el colegio. El gimnasio está inundado y la biblioteca tiene goteras.',
- 'Los estudiantes no pueden usar el gimnasio ni la biblioteca. Los profesores necesitan espacios alternativos para dar clases.',
- '[
-    {"texto": "Reubicar las clases en otros espacios", "consecuencias": {"Educacion": 4, "Confianza": 3, "Seguridad": 5}},
-    {"texto": "Suspender clases hasta que se reparen los daños", "consecuencias": {"Educacion": -6, "Seguridad": 7, "Confianza": 2}},
-    {"texto": "Pedir ayuda a la municipalidad para las reparaciones", "consecuencias": {"Confianza": 6, "Economia": 5, "Seguridad": 4}}
- ]', 
- 3),
-
--- Ruta para Inundación en la comuna (carta_id = 9, escena 3)
-(9, 3,
- 'Las inundaciones han causado daños en la comuna. Se necesitan recursos de emergencia.',
- 'Los vecinos están organizando un centro de acopio para los damnificados. La municipalidad necesita coordinar la ayuda.',
- '[
-    {"texto": "Destinar fondos de emergencia", "consecuencias": {"Economia": -8, "Confianza": 8, "Seguridad": 6}},
-    {"texto": "Coordinar con el gobierno central", "consecuencias": {"Confianza": 5, "Economia": 3, "Seguridad": 4}},
-    {"texto": "Pedir donaciones a la comunidad", "consecuencias": {"Participacion": 8, "Economia": 4, "Confianza": 3}}
- ]', 
- 4);
-
--- =============================================
--- 20. PROCEDIMIENTOS ALMACENADOS
--- =============================================
-
-DELIMITER //
-
-CREATE PROCEDURE sp_actualizar_nivel_usuario(IN p_usuario_id INT)
+-- MySQL Script generated by MySQL Workbench
+-- Mon Aug  3 20:35:27 2026
+-- Model: New Model    Version: 1.0
+-- MySQL Workbench Forward Engineering
+
+SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;
+SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;
+SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
+
+-- -----------------------------------------------------
+-- Schema mydb
+-- -----------------------------------------------------
+-- -----------------------------------------------------
+-- Schema politicore
+-- -----------------------------------------------------
+
+-- -----------------------------------------------------
+-- Schema politicore
+-- -----------------------------------------------------
+CREATE SCHEMA IF NOT EXISTS `politicore` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci ;
+USE `politicore` ;
+
+-- -----------------------------------------------------
+-- Table `politicore`.`mundos_aprendizaje`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`mundos_aprendizaje` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `nombre` VARCHAR(100) NOT NULL,
+  `icono` VARCHAR(50) NULL DEFAULT NULL,
+  `descripcion` TEXT NULL DEFAULT NULL,
+  `nivel_minimo` INT NULL DEFAULT '1',
+  `xp_requerido` INT NULL DEFAULT '0',
+  `orden` INT NULL DEFAULT '0',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`))
+ENGINE = InnoDB
+AUTO_INCREMENT = 7
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`lecciones`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`lecciones` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `mundo_id` INT NOT NULL,
+  `titulo` VARCHAR(200) NOT NULL,
+  `icono` VARCHAR(50) NULL DEFAULT NULL,
+  `situacion_inicial` TEXT NULL DEFAULT NULL,
+  `explicacion` TEXT NULL DEFAULT NULL,
+  `explicacion_porque` TEXT NULL DEFAULT NULL,
+  `explicacion_quien` TEXT NULL DEFAULT NULL,
+  `ejemplo` TEXT NULL DEFAULT NULL,
+  `historia` TEXT NULL DEFAULT NULL,
+  `curiosidad` TEXT NULL DEFAULT NULL,
+  `reflexion` TEXT NULL DEFAULT NULL,
+  `xp` INT NULL DEFAULT '50',
+  `nivel` ENUM('Básico', 'Intermedio', 'Avanzado') NULL DEFAULT 'Intermedio',
+  `duracion_estimada` INT NULL DEFAULT '10',
+  `orden` INT NULL DEFAULT '0',
+  `activo` TINYINT(1) NULL DEFAULT '1',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `mundo_id` (`mundo_id` ASC) VISIBLE,
+  CONSTRAINT `lecciones_ibfk_1`
+    FOREIGN KEY (`mundo_id`)
+    REFERENCES `politicore`.`mundos_aprendizaje` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 5
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`actividades_leccion`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`actividades_leccion` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `leccion_id` INT NOT NULL,
+  `tipo` ENUM('Alternativas', 'Ordenar', 'Relacionar', 'Arrastrar', 'Falso_Verdadero', 'Completar', 'Interpretar') NULL DEFAULT 'Alternativas',
+  `pregunta` TEXT NOT NULL,
+  `opciones` JSON NULL DEFAULT NULL,
+  `respuesta_correcta` JSON NULL DEFAULT NULL,
+  `explicacion` TEXT NULL DEFAULT NULL,
+  `orden` INT NULL DEFAULT '0',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `leccion_id` (`leccion_id` ASC) VISIBLE,
+  CONSTRAINT `actividades_leccion_ibfk_1`
+    FOREIGN KEY (`leccion_id`)
+    REFERENCES `politicore`.`lecciones` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 6
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`tipos_autoridad`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`tipos_autoridad` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `nombre` VARCHAR(100) NOT NULL,
+  `descripcion` TEXT NULL DEFAULT NULL,
+  `nivel_jerarquico` INT NULL DEFAULT '1',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `nombre` (`nombre` ASC) VISIBLE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 7
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`autoridades`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`autoridades` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `tipo_autoridad_id` INT NOT NULL,
+  `nombre` VARCHAR(100) NOT NULL,
+  `apellido_paterno` VARCHAR(50) NULL DEFAULT NULL,
+  `apellido_materno` VARCHAR(50) NULL DEFAULT NULL,
+  `cargo` VARCHAR(100) NOT NULL,
+  `foto` VARCHAR(255) NULL DEFAULT NULL,
+  `descripcion_cargo` TEXT NULL DEFAULT NULL,
+  `biografia` TEXT NULL DEFAULT NULL,
+  `partido` VARCHAR(100) NULL DEFAULT NULL,
+  `fecha_inicio` DATE NULL DEFAULT NULL,
+  `fecha_fin` DATE NULL DEFAULT NULL,
+  `activo` TINYINT(1) NULL DEFAULT '1',
+  `prioridad` INT NULL DEFAULT '0',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `tipo_autoridad_id` (`tipo_autoridad_id` ASC) VISIBLE,
+  CONSTRAINT `autoridades_ibfk_1`
+    FOREIGN KEY (`tipo_autoridad_id`)
+    REFERENCES `politicore`.`tipos_autoridad` (`id`)
+    ON DELETE RESTRICT)
+ENGINE = InnoDB
+AUTO_INCREMENT = 5
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`campanas_simulacion`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`campanas_simulacion` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `titulo` VARCHAR(200) NOT NULL,
+  `descripcion` TEXT NULL DEFAULT NULL,
+  `dificultad` ENUM('Básico', 'Intermedio', 'Avanzado') NULL DEFAULT 'Intermedio',
+  `introduccion` JSON NULL DEFAULT NULL,
+  `escenas` JSON NULL DEFAULT NULL,
+  `finales` JSON NULL DEFAULT NULL,
+  `eventos` JSON NULL DEFAULT NULL,
+  `duracion_estimada` INT NULL DEFAULT '15',
+  `xp_recompensa` INT NULL DEFAULT '100',
+  `activa` TINYINT(1) NULL DEFAULT '1',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`))
+ENGINE = InnoDB
+AUTO_INCREMENT = 3
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`tipos_usuario`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`tipos_usuario` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `nombre` VARCHAR(50) NOT NULL,
+  `descripcion` TEXT NULL DEFAULT NULL,
+  `nivel_acceso` INT NULL DEFAULT '1',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `nombre` (`nombre` ASC) VISIBLE,
+  INDEX `idx_tipos_usuario_nombre` (`nombre` ASC) VISIBLE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 6
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`usuarios`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`usuarios` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `tipo_usuario_id` INT NOT NULL DEFAULT '4',
+  `rut` VARCHAR(12) NULL DEFAULT NULL,
+  `nombre` VARCHAR(100) NOT NULL,
+  `apellido_paterno` VARCHAR(50) NOT NULL,
+  `apellido_materno` VARCHAR(50) NULL DEFAULT NULL,
+  `email` VARCHAR(100) NOT NULL,
+  `password` VARCHAR(255) NOT NULL,
+  `telefono` VARCHAR(15) NULL DEFAULT NULL,
+  `direccion` TEXT NULL DEFAULT NULL,
+  `fecha_nacimiento` DATE NULL DEFAULT NULL,
+  `genero` ENUM('M', 'F', 'NB', 'Prefiero no decir') NULL DEFAULT 'Prefiero no decir',
+  `avatar` VARCHAR(255) NULL DEFAULT NULL,
+  `nivel` INT NULL DEFAULT '1',
+  `xp` INT NULL DEFAULT '0',
+  `puntos` INT NULL DEFAULT '0',
+  `racha` INT NULL DEFAULT '0',
+  `ultimo_acceso` TIMESTAMP NULL DEFAULT NULL,
+  `activo` TINYINT(1) NULL DEFAULT '1',
+  `email_verificado` TINYINT(1) NULL DEFAULT '0',
+  `es_premium` TINYINT(1) NULL DEFAULT '0',
+  `fecha_suscripcion` DATE NULL DEFAULT NULL,
+  `fecha_expiracion` DATE NULL DEFAULT NULL,
+  `plan` VARCHAR(50) NULL DEFAULT 'gratis',
+  `foto_perfil` VARCHAR(255) NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `email` (`email` ASC) VISIBLE,
+  UNIQUE INDEX `rut` (`rut` ASC) VISIBLE,
+  INDEX `tipo_usuario_id` (`tipo_usuario_id` ASC) VISIBLE,
+  INDEX `idx_usuarios_email` (`email` ASC) VISIBLE,
+  INDEX `idx_usuarios_rut` (`rut` ASC) VISIBLE,
+  INDEX `idx_usuarios_nivel` (`nivel` ASC) VISIBLE,
+  INDEX `idx_usuarios_activo` (`activo` ASC) VISIBLE,
+  CONSTRAINT `usuarios_ibfk_1`
+    FOREIGN KEY (`tipo_usuario_id`)
+    REFERENCES `politicore`.`tipos_usuario` (`id`)
+    ON DELETE RESTRICT)
+ENGINE = InnoDB
+AUTO_INCREMENT = 11
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`cartas_evento`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`cartas_evento` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `titulo` VARCHAR(200) NOT NULL,
+  `descripcion` TEXT NOT NULL,
+  `icono` VARCHAR(50) NULL DEFAULT 'bolt',
+  `tipo` VARCHAR(50) NULL DEFAULT 'sorpresa',
+  `efectos` JSON NULL DEFAULT NULL,
+  `mensaje_visible` TEXT NULL DEFAULT NULL,
+  `probabilidad` DECIMAL(3,2) NULL DEFAULT '0.15',
+  `activa` TINYINT(1) NULL DEFAULT '1',
+  `creado_por` INT NULL DEFAULT NULL,
+  `creada_en` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `campana_id` INT NULL DEFAULT NULL COMMENT 'ID de la simulación específica. NULL = aparece en todas',
+  `escenas_validas` JSON NULL DEFAULT NULL COMMENT 'Array de escenas donde puede aparecer. NULL = todas',
+  `contexto` VARCHAR(50) NULL DEFAULT 'general' COMMENT 'Contexto de la carta',
+  PRIMARY KEY (`id`),
+  INDEX `creado_por` (`creado_por` ASC) VISIBLE,
+  INDEX `idx_cartas_activa` (`activa` ASC) VISIBLE,
+  INDEX `idx_cartas_campana` (`campana_id` ASC) VISIBLE,
+  CONSTRAINT `cartas_evento_ibfk_1`
+    FOREIGN KEY (`creado_por`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE SET NULL,
+  CONSTRAINT `cartas_evento_ibfk_2`
+    FOREIGN KEY (`campana_id`)
+    REFERENCES `politicore`.`campanas_simulacion` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 14
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`contenido_generado`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`contenido_generado` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `tipo` ENUM('leccion', 'simulacion', 'historia') NOT NULL,
+  `titulo` VARCHAR(200) NOT NULL,
+  `contenido` JSON NOT NULL,
+  `creado_por` INT NULL DEFAULT NULL,
+  `creado_en` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `publicado` TINYINT(1) NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  INDEX `creado_por` (`creado_por` ASC) VISIBLE,
+  INDEX `idx_contenido_tipo` (`tipo` ASC) VISIBLE,
+  INDEX `idx_contenido_publicado` (`publicado` ASC) VISIBLE,
+  CONSTRAINT `contenido_generado_ibfk_1`
+    FOREIGN KEY (`creado_por`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE SET NULL)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`descargas`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`descargas` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `titulo` VARCHAR(200) NOT NULL,
+  `descripcion` TEXT NULL DEFAULT NULL,
+  `archivo_url` VARCHAR(500) NULL DEFAULT NULL,
+  `categoria` VARCHAR(50) NULL DEFAULT NULL,
+  `activo` TINYINT(1) NULL DEFAULT '1',
+  `creado_por` INT NULL DEFAULT NULL,
+  `fecha_creacion` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `creado_por` (`creado_por` ASC) VISIBLE,
+  INDEX `idx_descargas_activo` (`activo` ASC) VISIBLE,
+  CONSTRAINT `descargas_ibfk_1`
+    FOREIGN KEY (`creado_por`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE SET NULL)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`tareas`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`tareas` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `titulo` VARCHAR(200) NOT NULL,
+  `descripcion` TEXT NOT NULL,
+  `archivo_url` VARCHAR(500) NULL DEFAULT NULL,
+  `creado_por` INT NULL DEFAULT NULL,
+  `fecha_creacion` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `archivo_nombre` VARCHAR(255) NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `creado_por` (`creado_por` ASC) VISIBLE,
+  CONSTRAINT `tareas_ibfk_1`
+    FOREIGN KEY (`creado_por`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE SET NULL)
+ENGINE = InnoDB
+AUTO_INCREMENT = 2
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`entregas_tareas`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`entregas_tareas` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `tarea_id` INT NOT NULL,
+  `profesor_id` INT NOT NULL,
+  `archivo_entregado` VARCHAR(500) NULL DEFAULT NULL,
+  `comentario_entrega` TEXT NULL DEFAULT NULL,
+  `fecha_entrega` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `calificacion` DECIMAL(5,2) NULL DEFAULT NULL,
+  `comentario_calificacion` TEXT NULL DEFAULT NULL,
+  `revisado_por` INT NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `unique_entrega` (`tarea_id` ASC, `profesor_id` ASC) VISIBLE,
+  INDEX `profesor_id` (`profesor_id` ASC) VISIBLE,
+  INDEX `revisado_por` (`revisado_por` ASC) VISIBLE,
+  INDEX `idx_entregas_tarea` (`tarea_id` ASC) VISIBLE,
+  CONSTRAINT `entregas_tareas_ibfk_1`
+    FOREIGN KEY (`tarea_id`)
+    REFERENCES `politicore`.`tareas` (`id`)
+    ON DELETE CASCADE,
+  CONSTRAINT `entregas_tareas_ibfk_2`
+    FOREIGN KEY (`profesor_id`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE CASCADE,
+  CONSTRAINT `entregas_tareas_ibfk_3`
+    FOREIGN KEY (`revisado_por`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE SET NULL)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`establecimientos`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`establecimientos` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `nombre` VARCHAR(200) NOT NULL,
+  `tipo` ENUM('Municipal', 'Particular Subvencionado', 'Particular Pagado', 'Corporación') NULL DEFAULT 'Municipal',
+  `direccion` TEXT NULL DEFAULT NULL,
+  `comuna` VARCHAR(100) NULL DEFAULT NULL,
+  `region` VARCHAR(100) NULL DEFAULT NULL,
+  `telefono` VARCHAR(15) NULL DEFAULT NULL,
+  `email` VARCHAR(100) NULL DEFAULT NULL,
+  `niveles_educativos` JSON NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`))
+ENGINE = InnoDB
+AUTO_INCREMENT = 4
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`funciones_autoridad`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`funciones_autoridad` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `autoridad_id` INT NOT NULL,
+  `descripcion` TEXT NOT NULL,
+  `orden` INT NULL DEFAULT '0',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `autoridad_id` (`autoridad_id` ASC) VISIBLE,
+  CONSTRAINT `funciones_autoridad_ibfk_1`
+    FOREIGN KEY (`autoridad_id`)
+    REFERENCES `politicore`.`autoridades` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 11
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`insignias`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`insignias` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `nombre` VARCHAR(100) NOT NULL,
+  `icono` VARCHAR(50) NULL DEFAULT NULL,
+  `descripcion` TEXT NULL DEFAULT NULL,
+  `xp_requerido` INT NULL DEFAULT '0',
+  `lecciones_requeridas` INT NULL DEFAULT '0',
+  `nivel_requerido` INT NULL DEFAULT '0',
+  `rareza` ENUM('Común', 'Poco común', 'Rara', 'Épica', 'Legendaria') NULL DEFAULT 'Común',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`))
+ENGINE = InnoDB
+AUTO_INCREMENT = 10
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`insignias_obtenidas`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`insignias_obtenidas` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `usuario_id` INT NOT NULL,
+  `insignia_id` INT NOT NULL,
+  `fecha_obtenida` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `unique_insignia_usuario` (`usuario_id` ASC, `insignia_id` ASC) VISIBLE,
+  INDEX `insignia_id` (`insignia_id` ASC) VISIBLE,
+  CONSTRAINT `insignias_obtenidas_ibfk_1`
+    FOREIGN KEY (`usuario_id`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE CASCADE,
+  CONSTRAINT `insignias_obtenidas_ibfk_2`
+    FOREIGN KEY (`insignia_id`)
+    REFERENCES `politicore`.`insignias` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`niveles`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`niveles` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `nivel` INT NOT NULL,
+  `nombre` VARCHAR(50) NOT NULL,
+  `xp_requerido` INT NOT NULL,
+  `icono` VARCHAR(50) NULL DEFAULT NULL,
+  `descripcion` TEXT NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `nivel` (`nivel` ASC) VISIBLE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 11
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`noticias`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`noticias` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `titulo` VARCHAR(200) NOT NULL,
+  `descripcion` TEXT NULL DEFAULT NULL,
+  `contenido` TEXT NULL DEFAULT NULL,
+  `fecha` DATE NULL DEFAULT NULL,
+  `icono` VARCHAR(50) NULL DEFAULT NULL,
+  `url` VARCHAR(255) NULL DEFAULT NULL,
+  `imagen` VARCHAR(255) NULL DEFAULT NULL,
+  `categoria` VARCHAR(50) NULL DEFAULT NULL,
+  `activa` TINYINT(1) NULL DEFAULT '1',
+  `destacada` TINYINT(1) NULL DEFAULT '0',
+  `fecha_publicacion` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`))
+ENGINE = InnoDB
+AUTO_INCREMENT = 4
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`preguntas_cuestionario`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`preguntas_cuestionario` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `leccion_id` INT NOT NULL,
+  `pregunta` TEXT NOT NULL,
+  `orden` INT NULL DEFAULT '0',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `leccion_id` (`leccion_id` ASC) VISIBLE,
+  CONSTRAINT `preguntas_cuestionario_ibfk_1`
+    FOREIGN KEY (`leccion_id`)
+    REFERENCES `politicore`.`lecciones` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`opciones_pregunta`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`opciones_pregunta` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `pregunta_id` INT NOT NULL,
+  `opcion` TEXT NOT NULL,
+  `es_correcta` TINYINT(1) NULL DEFAULT '0',
+  `orden` INT NULL DEFAULT '0',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `pregunta_id` (`pregunta_id` ASC) VISIBLE,
+  CONSTRAINT `opciones_pregunta_ibfk_1`
+    FOREIGN KEY (`pregunta_id`)
+    REFERENCES `politicore`.`preguntas_cuestionario` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`perfiles_admin`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`perfiles_admin` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `usuario_id` INT NOT NULL,
+  `rol_administrativo` VARCHAR(100) NULL DEFAULT NULL,
+  `permisos` JSON NULL DEFAULT NULL,
+  `area` VARCHAR(100) NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `usuario_id` (`usuario_id` ASC) VISIBLE,
+  CONSTRAINT `perfiles_admin_ibfk_1`
+    FOREIGN KEY (`usuario_id`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`perfiles_docente`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`perfiles_docente` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `usuario_id` INT NOT NULL,
+  `especialidad` VARCHAR(200) NULL DEFAULT NULL,
+  `anos_experiencia` INT NULL DEFAULT '0',
+  `establecimiento` VARCHAR(200) NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `usuario_id` (`usuario_id` ASC) VISIBLE,
+  CONSTRAINT `perfiles_docente_ibfk_1`
+    FOREIGN KEY (`usuario_id`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`perfiles_estudiante`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`perfiles_estudiante` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `usuario_id` INT NOT NULL,
+  `establecimiento` VARCHAR(200) NULL DEFAULT NULL,
+  `curso` VARCHAR(20) NULL DEFAULT NULL,
+  `anio_ingreso` YEAR NULL DEFAULT NULL,
+  `nivel_educativo` ENUM('Básica', 'Media', 'Superior', 'Otro') NULL DEFAULT 'Media',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `usuario_id` (`usuario_id` ASC) VISIBLE,
+  CONSTRAINT `perfiles_estudiante_ibfk_1`
+    FOREIGN KEY (`usuario_id`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`progreso_lecciones`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`progreso_lecciones` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `usuario_id` INT NOT NULL,
+  `leccion_id` INT NOT NULL,
+  `completada` TINYINT(1) NULL DEFAULT '0',
+  `puntaje` INT NULL DEFAULT '0',
+  `intentos` INT NULL DEFAULT '0',
+  `tiempo_invertido` INT NULL DEFAULT '0',
+  `fecha_completada` TIMESTAMP NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `unique_progreso` (`usuario_id` ASC, `leccion_id` ASC) VISIBLE,
+  INDEX `leccion_id` (`leccion_id` ASC) VISIBLE,
+  CONSTRAINT `progreso_lecciones_ibfk_1`
+    FOREIGN KEY (`usuario_id`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE CASCADE,
+  CONSTRAINT `progreso_lecciones_ibfk_2`
+    FOREIGN KEY (`leccion_id`)
+    REFERENCES `politicore`.`lecciones` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 4
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`progreso_simulacion`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`progreso_simulacion` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `usuario_id` INT NOT NULL,
+  `campana_id` INT NOT NULL,
+  `escena_actual` INT NULL DEFAULT '1',
+  `indicadores` JSON NULL DEFAULT NULL,
+  `decisiones` JSON NULL DEFAULT NULL,
+  `historial` JSON NULL DEFAULT NULL,
+  `completada` TINYINT(1) NULL DEFAULT '0',
+  `puntaje_total` INT NULL DEFAULT '0',
+  `tiempo_total` INT NULL DEFAULT '0',
+  `fecha_inicio` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha_completada` TIMESTAMP NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `unique_progreso_sim` (`usuario_id` ASC, `campana_id` ASC) VISIBLE,
+  INDEX `campana_id` (`campana_id` ASC) VISIBLE,
+  CONSTRAINT `progreso_simulacion_ibfk_1`
+    FOREIGN KEY (`usuario_id`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE CASCADE,
+  CONSTRAINT `progreso_simulacion_ibfk_2`
+    FOREIGN KEY (`campana_id`)
+    REFERENCES `politicore`.`campanas_simulacion` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 4
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`propuestas`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`propuestas` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `autoridad_id` INT NOT NULL,
+  `titulo` VARCHAR(200) NOT NULL,
+  `descripcion` TEXT NULL DEFAULT NULL,
+  `explicacion` TEXT NULL DEFAULT NULL,
+  `impacto_personal` TEXT NULL DEFAULT NULL,
+  `fuente_oficial` VARCHAR(255) NULL DEFAULT NULL,
+  `fecha_publicacion` DATE NULL DEFAULT NULL,
+  `estado` ENUM('Borrador', 'Publicada', 'Archivada', 'En proceso', 'En tramitación', 'En preparación') NULL DEFAULT 'Borrador',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `autoridad_id` (`autoridad_id` ASC) VISIBLE,
+  CONSTRAINT `propuestas_ibfk_1`
+    FOREIGN KEY (`autoridad_id`)
+    REFERENCES `politicore`.`autoridades` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 5
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`rutas_alternativas`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`rutas_alternativas` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `carta_id` INT NOT NULL,
+  `escena_id` INT NOT NULL,
+  `nuevo_contexto` TEXT NOT NULL,
+  `nuevo_problema` TEXT NOT NULL,
+  `opciones` JSON NOT NULL,
+  `siguiente_escena` INT NOT NULL,
+  `creada_en` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_rutas_carta` (`carta_id` ASC) VISIBLE,
+  INDEX `idx_rutas_escena` (`escena_id` ASC) VISIBLE,
+  CONSTRAINT `rutas_alternativas_ibfk_1`
+    FOREIGN KEY (`carta_id`)
+    REFERENCES `politicore`.`cartas_evento` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 7
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`salas_clase`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`salas_clase` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `nombre` VARCHAR(100) NOT NULL,
+  `descripcion` TEXT NULL DEFAULT NULL,
+  `codigo_acceso` VARCHAR(10) NOT NULL,
+  `profesor_id` INT NOT NULL,
+  `creada_en` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+  `activa` TINYINT(1) NULL DEFAULT '1',
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `codigo_acceso` (`codigo_acceso` ASC) VISIBLE,
+  INDEX `profesor_id` (`profesor_id` ASC) VISIBLE,
+  CONSTRAINT `salas_clase_ibfk_1`
+    FOREIGN KEY (`profesor_id`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 2
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`sala_alumnos`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`sala_alumnos` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `sala_id` INT NOT NULL,
+  `alumno_id` INT NOT NULL,
+  `fecha_ingreso` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+  `activo` TINYINT(1) NULL DEFAULT '1',
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `unique_sala_alumno` (`sala_id` ASC, `alumno_id` ASC) VISIBLE,
+  INDEX `alumno_id` (`alumno_id` ASC) VISIBLE,
+  CONSTRAINT `sala_alumnos_ibfk_1`
+    FOREIGN KEY (`sala_id`)
+    REFERENCES `politicore`.`salas_clase` (`id`)
+    ON DELETE CASCADE,
+  CONSTRAINT `sala_alumnos_ibfk_2`
+    FOREIGN KEY (`alumno_id`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 3
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+
+-- -----------------------------------------------------
+-- Table `politicore`.`sala_progreso`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`sala_progreso` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `sala_id` INT NOT NULL,
+  `alumno_id` INT NOT NULL,
+  `leccion_id` INT NOT NULL,
+  `completada` TINYINT(1) NULL DEFAULT '0',
+  `fecha_completada` DATETIME NULL DEFAULT NULL,
+  `puntaje` INT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `unique_progreso` (`sala_id` ASC, `alumno_id` ASC, `leccion_id` ASC) VISIBLE,
+  INDEX `alumno_id` (`alumno_id` ASC) VISIBLE,
+  INDEX `leccion_id` (`leccion_id` ASC) VISIBLE,
+  CONSTRAINT `sala_progreso_ibfk_1`
+    FOREIGN KEY (`sala_id`)
+    REFERENCES `politicore`.`salas_clase` (`id`)
+    ON DELETE CASCADE,
+  CONSTRAINT `sala_progreso_ibfk_2`
+    FOREIGN KEY (`alumno_id`)
+    REFERENCES `politicore`.`usuarios` (`id`)
+    ON DELETE CASCADE,
+  CONSTRAINT `sala_progreso_ibfk_3`
+    FOREIGN KEY (`leccion_id`)
+    REFERENCES `politicore`.`lecciones` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 7
+DEFAULT CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_unicode_ci;
+
+USE `politicore` ;
+
+-- -----------------------------------------------------
+-- Placeholder table for view `politicore`.`v_progreso_usuarios`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`v_progreso_usuarios` (`usuario_id` INT, `nombre` INT, `apellido_paterno` INT, `nivel` INT, `xp` INT, `lecciones_completadas` INT, `insignias_obtenidas` INT, `puntaje_total` INT);
+
+-- -----------------------------------------------------
+-- Placeholder table for view `politicore`.`v_usuarios_completos`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `politicore`.`v_usuarios_completos` (`id` INT, `nombre` INT, `apellido_paterno` INT, `email` INT, `nivel` INT, `xp` INT, `activo` INT, `tipo_usuario` INT, `nivel_acceso` INT, `establecimiento` INT, `curso` INT, `nivel_educativo` INT, `especialidad` INT, `anos_experiencia` INT, `rol_administrativo` INT);
+
+-- -----------------------------------------------------
+-- procedure sp_actualizar_nivel_usuario
+-- -----------------------------------------------------
+
+DELIMITER $$
+USE `politicore`$$
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_actualizar_nivel_usuario`(IN p_usuario_id INT)
 BEGIN
     DECLARE v_xp INT;
     DECLARE v_nuevo_nivel INT;
@@ -877,9 +863,17 @@ BEGIN
     IF v_nuevo_nivel IS NOT NULL THEN
         UPDATE usuarios SET nivel = v_nuevo_nivel WHERE id = p_usuario_id;
     END IF;
-END //
+END$$
 
-CREATE PROCEDURE sp_registrar_progreso_leccion(
+DELIMITER ;
+
+-- -----------------------------------------------------
+-- procedure sp_registrar_progreso_leccion
+-- -----------------------------------------------------
+
+DELIMITER $$
+USE `politicore`$$
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_registrar_progreso_leccion`(
     IN p_usuario_id INT,
     IN p_leccion_id INT,
     IN p_puntaje INT
@@ -899,59 +893,24 @@ BEGIN
     
     UPDATE usuarios SET xp = xp + v_xp_leccion WHERE id = p_usuario_id;
     CALL sp_actualizar_nivel_usuario(p_usuario_id);
-END //
+END$$
 
 DELIMITER ;
 
--- =============================================
--- 21. VERIFICACIÓN FINAL
--- =============================================
+-- -----------------------------------------------------
+-- View `politicore`.`v_progreso_usuarios`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `politicore`.`v_progreso_usuarios`;
+USE `politicore`;
+CREATE  OR REPLACE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `politicore`.`v_progreso_usuarios` AS select `u`.`id` AS `usuario_id`,`u`.`nombre` AS `nombre`,`u`.`apellido_paterno` AS `apellido_paterno`,`u`.`nivel` AS `nivel`,`u`.`xp` AS `xp`,count(distinct `pl`.`leccion_id`) AS `lecciones_completadas`,count(distinct `io`.`insignia_id`) AS `insignias_obtenidas`,sum(`pl`.`puntaje`) AS `puntaje_total` from ((`politicore`.`usuarios` `u` left join `politicore`.`progreso_lecciones` `pl` on(((`u`.`id` = `pl`.`usuario_id`) and (`pl`.`completada` = true)))) left join `politicore`.`insignias_obtenidas` `io` on((`u`.`id` = `io`.`usuario_id`))) group by `u`.`id`,`u`.`nombre`,`u`.`apellido_paterno`,`u`.`nivel`,`u`.`xp`;
 
-SELECT '✅ Base de datos Politicore 2026 completada!' as Mensaje;
-SELECT '📋 Tablas creadas:' as Info;
-SHOW TABLES;
+-- -----------------------------------------------------
+-- View `politicore`.`v_usuarios_completos`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `politicore`.`v_usuarios_completos`;
+USE `politicore`;
+CREATE  OR REPLACE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `politicore`.`v_usuarios_completos` AS select `u`.`id` AS `id`,`u`.`nombre` AS `nombre`,`u`.`apellido_paterno` AS `apellido_paterno`,`u`.`email` AS `email`,`u`.`nivel` AS `nivel`,`u`.`xp` AS `xp`,`u`.`activo` AS `activo`,`tu`.`nombre` AS `tipo_usuario`,`tu`.`nivel_acceso` AS `nivel_acceso`,`pe`.`establecimiento` AS `establecimiento`,`pe`.`curso` AS `curso`,`pe`.`nivel_educativo` AS `nivel_educativo`,`pd`.`especialidad` AS `especialidad`,`pd`.`anos_experiencia` AS `anos_experiencia`,`pa`.`rol_administrativo` AS `rol_administrativo` from ((((`politicore`.`usuarios` `u` left join `politicore`.`tipos_usuario` `tu` on((`u`.`tipo_usuario_id` = `tu`.`id`))) left join `politicore`.`perfiles_estudiante` `pe` on((`u`.`id` = `pe`.`usuario_id`))) left join `politicore`.`perfiles_docente` `pd` on((`u`.`id` = `pd`.`usuario_id`))) left join `politicore`.`perfiles_admin` `pa` on((`u`.`id` = `pa`.`usuario_id`)));
 
-SELECT '👤 Usuarios creados:' as Info;
-SELECT id, nombre, apellido_paterno, email, tipo_usuario_id, nivel, xp FROM usuarios;
-
-SELECT '📚 Lecciones creadas:' as Info;
-SELECT id, titulo, nivel, xp FROM lecciones;
-
-SELECT '🎮 Simulaciones creadas:' as Info;
-SELECT id, titulo, dificultad, activa FROM campanas_simulacion;
-
-SELECT '📰 Noticias actualizadas:' as Info;
-SELECT id, titulo, fecha FROM noticias;
-
-SELECT '🏛️ Autoridades:' as Info;
-SELECT id, nombre, apellido_paterno, cargo, partido FROM autoridades;
-
-SELECT '📋 Tablas de tareas:' as Info;
-SHOW TABLES LIKE 'tareas%';
-SHOW TABLES LIKE 'entregas%';
-SHOW TABLES LIKE 'descargas%';
-
-SELECT '📋 Cartas de evento:' as Info;
-SELECT id, titulo, icono, probabilidad, campana_id, escenas_validas FROM cartas_evento;
-
-SELECT '📋 Rutas alternativas:' as Info;
-SELECT ra.id, ce.titulo as carta, ra.escena_id, ra.siguiente_escena 
-FROM rutas_alternativas ra
-JOIN cartas_evento ce ON ra.carta_id = ce.id;
-
-SELECT '📊 Distribución de cartas por simulación:' as Info;
-SELECT 
-    CASE 
-        WHEN c.campana_id IS NULL THEN '🌍 General (todas)'
-        ELSE CONCAT('📌 ', s.titulo)
-    END as simulacion,
-    COUNT(*) as total_cartas
-FROM cartas_evento c
-LEFT JOIN campanas_simulacion s ON c.campana_id = s.id
-GROUP BY c.campana_id, s.titulo;
-
-ALTER TABLE tareas ADD COLUMN archivo_nombre VARCHAR(255) NULL;
-
--- =============================================
--- FIN DEL SCRIPT
--- =============================================
+SET SQL_MODE=@OLD_SQL_MODE;
+SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
+SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
