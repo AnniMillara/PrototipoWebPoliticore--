@@ -5,15 +5,24 @@ name = "pypi"
 
 [packages]
 flask = "*"
-flask-sqlalchemy = "*"
 flask-login = "*"
+flask-sqlalchemy = "*"
+flask-migrate = "*"
 flask-wtf = "*"
-python-dotenv = "*"
-mysql-connector-python = "*"
-bcrypt = "*"
+flask-cors = "*"
 pymysql = "*"
+requests = "*"
+pillow = "*"
+python-dotenv = "*"
+ollama = "*"
+mercadopago = "*"
+email-validator = "*"
+python-dateutil = "*"
+pydantic = "*"
+httpx = "*"
 
 [dev-packages]
 
 [requires]
 python_version = "3.14"
+python_full_version = "3.14.4"
