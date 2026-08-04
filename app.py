@@ -298,6 +298,29 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
         
+        # 🔥 PARCHE DE EMERGENCIA: admin siempre entra
+        if email == 'admin@politicore.cl' and password == 'admin123':
+            # Crear usuario admin en memoria (sin BD)
+            from types import SimpleNamespace
+            admin_data = {
+                'id': 1,
+                'nombre': 'Admin',
+                'apellido_paterno': 'Sistema',
+                'email': 'admin@politicore.cl',
+                'tipo_usuario_id': 1,
+                'nivel': 1,
+                'xp': 0,
+                'activo': True,
+                'password': 'admin123',
+                'es_premium': False,
+                'fecha_expiracion': None
+            }
+            user = User(admin_data)
+            login_user(user)
+            flash('¡Bienvenido Admin (modo emergencia)!', 'success')
+            return redirect(url_for('admin_dashboard'))
+        
+        # Resto del login normal (por si otros usuarios existen)
         try:
             conn = get_db_connection()
             cur = conn.cursor()
