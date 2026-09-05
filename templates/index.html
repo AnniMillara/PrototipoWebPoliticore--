@@ -6,7 +6,7 @@
 <!-- Hero Section -->
 <section class="hero-section">
     <div class="container">
-        <div class="row align-items-center">
+        <div class="row align-items-center gx-5">
             <div class="col-lg-7">
                 <h1 class="hero-title">
                     Aprende cómo funciona<br>
@@ -20,8 +20,12 @@
                     <i class="fas fa-rocket me-2"></i> Comienza a Aprender
                 </a>
             </div>
-            <div class="col-lg-5 d-none d-lg-block text-center">
-                <i class="fas fa-flag-chile" style="font-size: 8rem; color: rgba(255,255,255,0.2);"></i>
+            <div class="col-lg-5 d-none d-lg-block">
+                <div class="representative-container" style="height:100%; min-height:300px; width:80%; margin:0 auto; display:flex; justify-content:center; align-items:center; overflow:hidden; border-radius:20px;">
+                    <img src="{{ url_for('static', filename='img/descarga.jpg') }}" 
+                         alt="PolitiCore" 
+                         style="width:100%; height:100%; object-fit:cover;">
+                </div>
             </div>
         </div>
     </div>
@@ -30,43 +34,43 @@
 <div class="container">
     <!-- Acceso Rápido -->
     <section class="mb-5">
-        <h2 class="fw-bold mb-4">
-            <i class="fas fa-bolt text-primary me-2"></i> Acceso Rápido
+        <h2 class="fw-bold mb-4" style="color: var(--primary-turquoise);">
+            <i class="fas fa-bolt me-2"></i> Acceso Rápido
         </h2>
         <div class="row g-4">
             <div class="col-md-4 animate-fadeInUp delay-1">
                 <a href="{{ url_for('estado') }}" class="text-decoration-none">
-                    <div class="card-modern">
-                        <div class="card-icon">
+                    <div class="card-modern" style="border-top: 4px solid var(--primary-lavender);">
+                        <div class="card-icon" style="background: rgba(167,139,250,0.15); color: var(--primary-lavender);">
                             <i class="fas fa-landmark"></i>
                         </div>
                         <h5>Estado de Chile</h5>
                         <p>Conoce a las autoridades y sus propuestas</p>
-                        <span class="text-primary fw-semibold">Explorar →</span>
+                        <span style="color: var(--primary-lavender); font-weight: 600;">Explorar →</span>
                     </div>
                 </a>
             </div>
             <div class="col-md-4 animate-fadeInUp delay-2">
                 <a href="{{ url_for('lecciones') }}" class="text-decoration-none">
-                    <div class="card-modern">
-                        <div class="card-icon" style="background: #FEF3C7; color: #D97706;">
+                    <div class="card-modern" style="border-top: 4px solid var(--primary-turquoise);">
+                        <div class="card-icon" style="background: rgba(20,184,166,0.15); color: var(--primary-turquoise);">
                             <i class="fas fa-graduation-cap"></i>
                         </div>
                         <h5>Lecciones</h5>
                         <p>Aprende con nuestro mapa de aprendizaje</p>
-                        <span class="text-primary fw-semibold">Ver lecciones →</span>
+                        <span style="color: var(--primary-turquoise); font-weight: 600;">Ver lecciones →</span>
                     </div>
                 </a>
             </div>
             <div class="col-md-4 animate-fadeInUp delay-3">
                 <a href="{{ url_for('simulacion') }}" class="text-decoration-none">
-                    <div class="card-modern">
-                        <div class="card-icon" style="background: #D1FAE5; color: #065F46;">
+                    <div class="card-modern" style="border-top: 4px solid var(--primary-amber);">
+                        <div class="card-icon" style="background: rgba(251,191,36,0.15); color: #D97706;">
                             <i class="fas fa-gamepad"></i>
                         </div>
                         <h5>Simulación</h5>
                         <p>Practica tomando decisiones de gobierno</p>
-                        <span class="text-primary fw-semibold">Jugar →</span>
+                        <span style="color: #D97706; font-weight: 600;">Jugar →</span>
                     </div>
                 </a>
             </div>
@@ -75,16 +79,16 @@
 
     <!-- Noticias Destacadas -->
     <section class="mb-5">
-        <h2 class="fw-bold mb-4">
-            <i class="fas fa-newspaper text-primary me-2"></i> Noticias Destacadas
+        <h2 class="fw-bold mb-4" style="color: var(--primary-orange);">
+            <i class="fas fa-newspaper me-2"></i> Noticias Destacadas
         </h2>
         <div class="row g-4">
             {% for noticia in noticias_destacadas %}
             <div class="col-md-4">
-                <div class="card-modern">
+                <div class="card-modern" style="border-left: 4px solid var(--primary-orange);">
                     <div class="d-flex align-items-start gap-3">
                         <div class="flex-shrink-0">
-                            <i class="fas fa-{{ noticia.icono or 'circle' }} text-primary"></i>
+                            <i class="fas fa-{{ noticia.icono or 'circle' }}" style="color: var(--primary-orange);"></i>
                         </div>
                         <div>
                             <h6 class="fw-bold mb-1">{{ noticia.titulo }}</h6>
@@ -103,13 +107,13 @@
         <div class="coming-soon">
             <div class="row align-items-center">
                 <div class="col-lg-8">
-                    <h4 class="fw-bold mb-2">
+                    <h4 class="fw-bold mb-2" style="color: #92400E;">
                         <i class="fas fa-clock me-2"></i> Próximamente
                     </h4>
                     <p class="mb-0">Estamos desarrollando nuevas funcionalidades para mejorar tu experiencia:</p>
                 </div>
                 <div class="col-lg-4 text-lg-end">
-                    <span class="badge bg-warning text-dark p-2">
+                    <span class="badge" style="background: var(--primary-amber); color: var(--gray-dark); padding: 6px 16px;">
                         <i class="fas fa-rocket me-1"></i> En desarrollo
                     </span>
                 </div>
@@ -118,7 +122,7 @@
                 {% for feature in proximas_funciones %}
                 <div class="col-md-3 col-6">
                     <div class="text-center p-2 bg-white bg-opacity-50 rounded">
-                        <i class="fas fa-{{ feature.icono }} text-primary fs-4"></i>
+                        <i class="fas fa-{{ feature.icono }}" style="color: var(--primary-turquoise); font-size: 1.8rem;"></i>
                         <p class="small fw-semibold mb-0">{{ feature.nombre }}</p>
                     </div>
                 </div>

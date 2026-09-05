@@ -11,15 +11,15 @@
         box-shadow: var(--shadow-lg);
         margin-bottom: 2rem;
         animation: fadeIn 0.6s ease;
-        border-left: 6px solid var(--primary-blue);
+        border-left: 6px solid var(--primary-turquoise);
         min-height: 300px;
     }
     .scene-container.event {
-        border-left-color: #F59E0B;
+        border-left-color: var(--primary-amber);
         background: #FFFBEB;
     }
     .scene-container.final {
-        border-left-color: #8B5CF6;
+        border-left-color: var(--primary-lavender);
         background: #F5F3FF;
     }
     .option-card {
@@ -32,13 +32,13 @@
         margin-bottom: 1rem;
     }
     .option-card:hover {
-        border-color: var(--primary-blue);
+        border-color: var(--primary-turquoise);
         transform: translateX(8px);
         box-shadow: var(--shadow-md);
     }
     .option-card.selected {
-        border-color: var(--primary-blue);
-        background: var(--primary-light);
+        border-color: var(--primary-turquoise);
+        background: rgba(20,184,166,0.1);
     }
     .event-badge {
         background: #FEF3C7;
@@ -52,7 +52,7 @@
     }
     .final-badge {
         background: #EDE9FE;
-        color: #7C3AED;
+        color: var(--primary-lavender-dark);
         padding: 4px 16px;
         border-radius: 50px;
         font-size: 0.9rem;
@@ -88,7 +88,7 @@
             <h1 class="fw-bold">{{ campana.titulo }}</h1>
             <p class="text-muted">{{ campana.descripcion }}</p>
         </div>
-        <span class="badge bg-primary p-2">
+        <span class="badge bg-primary p-2" style="background: var(--primary-turquoise);">
             {% if escena.tipo == 'final' %}
                 🎉 Completada
             {% else %}
@@ -123,26 +123,25 @@
             {% for opcion in escena.opciones %}
             <div class="option-card" onclick="seleccionarOpcion(this, {{ loop.index0 }})" data-index="{{ loop.index0 }}">
                 <div class="fw-semibold">{{ opcion.texto }}</div>
-                <!-- 🔥 LAS CONSECUENCIAS YA NO SE MUESTRAN 🔥 -->
             </div>
             {% endfor %}
-            <button class="btn btn-primary mt-3" id="btnConfirmar" style="display: none;" onclick="confirmarDecision()">
+            <button class="btn btn-primary mt-3" id="btnConfirmar" style="display: none; background: var(--primary-turquoise); border-color: var(--primary-turquoise);" onclick="confirmarDecision()">
                 <i class="fas fa-check me-2"></i> Confirmar decisión
             </button>
         </div>
         {% endif %}
 
         {% if escena.tipo == 'evento' %}
-        <button class="btn btn-warning mt-3" onclick="continuarHistoria()">
+        <button class="btn btn-warning mt-3" onclick="continuarHistoria()" style="background: var(--primary-amber); border-color: var(--primary-amber); color: var(--gray-dark);">
             <i class="fas fa-arrow-right me-2"></i> Continuar
         </button>
         {% endif %}
 
         {% if escena.tipo == 'final' %}
         <div class="mt-4 p-4 bg-light rounded-3">
-            <h6 class="fw-bold"><i class="fas fa-lightbulb text-warning me-2"></i> Reflexión</h6>
+            <h6 class="fw-bold"><i class="fas fa-lightbulb text-warning me-2" style="color: var(--primary-amber);"></i> Reflexión</h6>
             <p>{{ escena.reflexion }}</p>
-            <a href="{{ url_for('simulacion') }}" class="btn btn-primary mt-2">
+            <a href="{{ url_for('simulacion') }}" class="btn btn-primary mt-2" style="background: var(--primary-turquoise); border-color: var(--primary-turquoise);">
                 <i class="fas fa-arrow-left me-2"></i> Volver a simulaciones
             </a>
         </div>
@@ -155,7 +154,7 @@
         <div class="col-12">
             <div class="bg-light p-3 rounded">
                 <h6 class="fw-bold mb-3">
-                    <i class="fas fa-chart-bar text-primary me-2"></i> Estado actual
+                    <i class="fas fa-chart-bar text-primary me-2" style="color: var(--primary-turquoise);"></i> Estado actual
                 </h6>
                 <div class="row g-2">
                     {% for key, value in indicadores.items() %}
@@ -198,7 +197,6 @@ function confirmarDecision() {
         return;
     }
 
-    // 🔥 ENVIAR LA DECISIÓN AL SERVIDOR
     fetch('/api/procesar_decision_simulacion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

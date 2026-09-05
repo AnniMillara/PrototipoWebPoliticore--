@@ -5,17 +5,16 @@
 {% block content %}
 <div class="container py-4">
     <h1 class="fw-bold mb-4">
-        <i class="fas fa-gamepad text-primary me-2"></i> Simulaciones
+        <i class="fas fa-gamepad" style="color: var(--primary-turquoise); me-2"></i> Simulaciones
     </h1>
 
-    <!-- Mensaje para usuarios no registrados -->
     {% if not current_user.is_authenticated %}
     <div class="alert alert-warning mb-4">
         <div class="d-flex align-items-center gap-3">
             <i class="fas fa-lock fa-2x"></i>
             <div>
                 <h5 class="fw-bold mb-1">Necesitas iniciar sesión</h5>
-                <p class="mb-0">Para jugar simulaciones, debes <a href="{{ url_for('login') }}" class="fw-bold">iniciar sesión</a> o <a href="{{ url_for('registro') }}" class="fw-bold">registrarte</a>.</p>
+                <p class="mb-0">Para jugar simulaciones, debes <a href="{{ url_for('login') }}" class="fw-bold" style="color: var(--primary-turquoise);">iniciar sesión</a> o <a href="{{ url_for('registro') }}" class="fw-bold" style="color: var(--primary-turquoise);">registrarte</a>.</p>
             </div>
         </div>
     </div>
@@ -33,7 +32,7 @@
                 <p class="text-muted small">{{ campana.descripcion }}</p>
                 
                 {% if current_user.is_authenticated %}
-                <a href="{{ url_for('simulacion_jugar', id=campana.id) }}" class="btn btn-primary btn-sm w-100">
+                <a href="{{ url_for('simulacion_jugar', id=campana.id) }}" class="btn btn-primary btn-sm w-100" style="background: var(--primary-turquoise); border-color: var(--primary-turquoise);">
                     <i class="fas fa-play me-1"></i> Comenzar
                 </a>
                 {% else %}

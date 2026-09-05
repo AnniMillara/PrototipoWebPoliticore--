@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo tema - PolitiCore{% endblock %}
+
+{% block extra_css %}
+<style>
+    .editor-toolbar {
+        background: #F8FAFC;
+        border-radius: 8px 8px 0 0;
+        padding: 8px;
+        border: 1px solid #E5E7EB;
+        border-bottom: none;
+    }
+    .editor-toolbar .btn { font-size: 0.8rem; padding: 4px 8px; }
+    .drop-zone {
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    .drop-zone:hover { background: #f8f9fa; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-modern">
+                <h4 class="fw-bold mb-4"><i class="fas fa-plus-circle text-primary me-2"></i> Crear nuevo tema</h4>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Título <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="titulo" required placeholder="Escribe un título descriptivo">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Categoría</label>
+                        <select class="form-select" name="categoria">
+                            <option value="general">📌 General</option>
+                            <option value="pregunta">❓ Pregunta</option>
+                            <option value="debate">🗣️ Debate</option>
+                            <option value="noticia">📰 Noticia</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Contenido <span class="text-danger">*</span></label>
+                        <div class="editor-toolbar">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertarTexto('**', '**')"><b>B</b></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertarTexto('*', '*')"><i>I</i></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertarTexto('[', '](url)')">🔗</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertarTexto('- ', '')">•</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertarImagen()">🖼️ Imagen</button>
+                        </div>
+                        <textarea class="form-control" name="contenido" id="contenido" rows="10" required placeholder="Escribe tu mensaje aquí... (puedes usar **negrita**, *cursiva*, [enlace](url), - listas, y subir imágenes)"></textarea>
+                        <small class="text-muted">Puedes usar formato Markdown básico y subir imágenes (PNG, JPG, GIF).</small>
+                        <div class="drop-zone mt-2" id="dropZone">
+                            <i class="fas fa-cloud-upload-alt fa-2x"></i>
+                            <p>Arrastra y suelta imágenes aquí o haz clic para subir</p>
+                            <input type="file" id="fileInput" accept="image/*" style="display:none;" multiple>
+                        </div>
+                    </div>
+                    {% if noticias %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Vincular a noticia (opcional)</label>
+                        <select class="form-select" name="noticia_id">
+                            <option value="">Sin vincular</option>
+                            {% for n in noticias %}
+                            <option value="{{ n.id }}">{{ n.titulo }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">El tema aparecerá en la sección de comentarios de esa noticia.</small>
+                    </div>
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i> Publicar</button>
+                    <a href="{{ url_for('foro_index') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-2"></i> Volver</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function insertarTexto(open, close) {
+        const textarea = document.getElementById('contenido');
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        const selected = text.substring(start, end);
+        const replacement = open + selected + close;
+        textarea.value = text.substring(0, start) + replacement + text.substring(end);
+        textarea.focus();
+        textarea.selectionStart = start + open.length;
+        textarea.selectionEnd = start + open.length + selected.length;
+    }
+
+    function insertarImagen() {
+        document.getElementById('fileInput').click();
+    }
+
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const files = e.target.files;
+        for (let i = 0; i < files.length; i++) {
+            subirImagen(files[i]);
+        }
+    });
+
+    document.getElementById('dropZone').addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.style.background = '#e9ecef';
+    });
+    document.getElementById('dropZone').addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        this.style.background = '';
+    });
+    document.getElementById('dropZone').addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.style.background = '';
+        const files = e.dataTransfer.files;
+        for (let i = 0; i < files.length; i++) {
+            if (files[i].type.startsWith('image/')) {
+                subirImagen(files[i]);
+            }
+        }
+    });
+    document.getElementById('dropZone').addEventListener('click', function() {
+        document.getElementById('fileInput').click();
+    });
+
+    function subirImagen(file) {
+        const formData = new FormData();
+        formData.append('imagen', file);
+        fetch('{{ url_for("foro_subir_imagen") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const textarea = document.getElementById('contenido');
+                const markdown = `![imagen](${data.url})`;
+                textarea.value += '\n' + markdown + '\n';
+            } else {
+                alert('Error al subir imagen: ' + data.error);
+            }
+        })
+        .catch(err => {
+            alert('Error de conexión');
+        });
+    }
+</script>
+{% endblock %}

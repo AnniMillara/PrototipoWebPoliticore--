@@ -10,7 +10,7 @@
         padding: 2rem;
         margin-bottom: 2rem;
         box-shadow: var(--shadow-sm);
-        border-left: 6px solid var(--primary-blue);
+        border-left: 6px solid var(--primary-turquoise);
         transition: var(--transition);
     }
     .mundo-card:hover {
@@ -24,7 +24,7 @@
     }
     .mundo-card .mundo-header i {
         font-size: 2.5rem;
-        color: var(--primary-blue);
+        color: var(--primary-turquoise);
         width: 50px;
         text-align: center;
     }
@@ -48,7 +48,7 @@
     .leccion-card:hover {
         transform: translateY(-4px);
         box-shadow: var(--shadow-md);
-        border-color: var(--primary-blue);
+        border-color: var(--primary-turquoise);
     }
     .leccion-card.bloqueada {
         opacity: 0.5;
@@ -59,7 +59,7 @@
         border-color: #E5E7EB;
     }
     .leccion-card.completada {
-        border-color: #10B981;
+        border-color: var(--primary-turquoise);
         background: #F0FDF4;
     }
     .leccion-card .badge-estado {
@@ -73,7 +73,7 @@
     }
     .badge-estado.disponible {
         background: #DBEAFE;
-        color: #2563EB;
+        color: var(--primary-turquoise);
     }
     .badge-estado.completada {
         background: #D1FAE5;
@@ -86,7 +86,7 @@
     .leccion-card .leccion-icon {
         font-size: 2rem;
         margin-bottom: 0.5rem;
-        color: var(--primary-blue);
+        color: var(--primary-turquoise);
     }
     .leccion-card .leccion-titulo {
         font-weight: 600;
@@ -96,10 +96,10 @@
     }
     .leccion-card .leccion-xp {
         font-size: 0.8rem;
-        color: var(--text-gray);
+        color: var(--gray-medium);
     }
     .leccion-card .leccion-xp i {
-        color: #F59E0B;
+        color: var(--primary-amber);
     }
     .leccion-card .progress-custom {
         height: 4px;
@@ -111,7 +111,7 @@
     .leccion-card .progress-custom .fill {
         height: 100%;
         border-radius: 4px;
-        background: linear-gradient(90deg, #2563EB, #7C3AED);
+        background: linear-gradient(90deg, var(--primary-turquoise), var(--primary-lavender));
         transition: width 0.6s ease;
     }
     .leccion-card a {
@@ -125,9 +125,9 @@
 <div class="container py-4">
     <div class="d-flex align-items-center justify-content-between mb-4">
         <h1 class="fw-bold">
-            <i class="fas fa-map text-primary me-2"></i> Mapa de Aprendizaje
+            <i class="fas fa-map text-primary" style="color: var(--primary-turquoise); me-2"></i> Mapa de Aprendizaje
         </h1>
-        <span class="badge bg-primary p-2">
+        <span class="badge bg-primary p-2" style="background: var(--primary-turquoise);">
             <i class="fas fa-flag me-1"></i> {{ mundos|length }} mundos
         </span>
     </div>

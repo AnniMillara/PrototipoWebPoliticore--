@@ -11,22 +11,22 @@
         padding: 2rem;
         margin-bottom: 1.5rem;
         box-shadow: var(--shadow-sm);
-        border-left: 4px solid var(--primary-blue);
+        border-left: 4px solid var(--primary-turquoise);
     }
-    .section-card.highlight { background: #FFFBEB; border-left-color: #F59E0B; }
-    .story-box { background: var(--bg-light); border-radius: 12px; padding: 1.5rem; margin: 1rem 0; border: 1px solid #E5E7EB; }
+    .section-card.highlight { background: #FFFBEB; border-left-color: var(--primary-amber); }
+    .story-box { background: var(--gray-light); border-radius: 12px; padding: 1.5rem; margin: 1rem 0; border: 1px solid #E5E7EB; }
     .curiosity-box { background: linear-gradient(135deg, #DBEAFE, #EFF6FF); border-radius: 12px; padding: 1.5rem; border: 1px solid #93C5FD; }
     .xp-earned { display: inline-block; padding: 4px 16px; background: #FEF3C7; color: #D97706; border-radius: 50px; font-weight: 600; }
     .activity-option {
-        display: block; padding: 1rem; background: var(--bg-light); border: 2px solid #E5E7EB; border-radius: 8px;
+        display: block; padding: 1rem; background: var(--gray-light); border: 2px solid #E5E7EB; border-radius: 8px;
         margin: 0.5rem 0; cursor: pointer; transition: var(--transition);
     }
-    .activity-option:hover { border-color: var(--primary-blue); background: white; }
-    .activity-option.selected { border-color: var(--primary-blue); background: var(--primary-light); }
+    .activity-option:hover { border-color: var(--primary-turquoise); background: white; }
+    .activity-option.selected { border-color: var(--primary-turquoise); background: rgba(20,184,166,0.1); }
     .activity-option.correct { border-color: #10B981; background: #D1FAE5; }
     .activity-option.incorrect { border-color: #EF4444; background: #FEE2E2; }
     .actividad-item {
-        border-left: 4px solid #8B5CF6;
+        border-left: 4px solid var(--primary-lavender);
         background: #FAF5FF;
     }
 </style>
@@ -37,7 +37,7 @@
     <div class="lesson-container">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <span class="badge bg-primary mb-2">{{ leccion.mundo }}</span>
+                <span class="badge bg-primary mb-2" style="background: var(--primary-turquoise);">{{ leccion.mundo }}</span>
                 <h1 class="fw-bold">{{ leccion.titulo }}</h1>
             </div>
             <span class="xp-earned"><i class="fas fa-star me-1"></i> {{ leccion.xp }} XP</span>
@@ -57,7 +57,7 @@
 
         <!-- Ejemplo -->
         <div class="section-card">
-            <h6 class="fw-bold" style="color: #F59E0B;"><i class="fas fa-lightbulb me-2"></i> Ejemplo cotidiano</h6>
+            <h6 class="fw-bold" style="color: var(--primary-amber);"><i class="fas fa-lightbulb me-2"></i> Ejemplo cotidiano</h6>
             <div class="story-box"><p class="mb-0">{{ leccion.ejemplo }}</p></div>
         </div>
 
@@ -75,9 +75,7 @@
             </div>
         </div>
 
-        <!-- ============================================ -->
-        <!-- ACTIVIDADES (TESTS) DE LA LECCIÓN -->
-        <!-- ============================================ -->
+        <!-- ACTIVIDADES (TESTS) -->
         <div class="section-card">
             <h5 class="fw-bold mb-3">
                 <i class="fas fa-puzzle-piece text-primary me-2"></i> Actividades de la lección
@@ -100,7 +98,7 @@
                                 <span class="badge bg-light me-2">{{ loop.index }}</span> {{ opcion }}
                             </div>
                             {% endfor %}
-                            <button class="btn btn-primary btn-sm mt-2 btn-verificar" style="display:none;" onclick="verificarActividad({{ actividad_index }})">
+                            <button class="btn btn-primary btn-sm mt-2 btn-verificar" style="display:none; background: var(--primary-turquoise); border-color: var(--primary-turquoise);" onclick="verificarActividad({{ actividad_index }})">
                                 <i class="fas fa-check me-1"></i> Verificar
                             </button>
                             <div class="resultado-actividad mt-2" id="resultado-{{ actividad_index }}" style="display:none;"></div>
@@ -119,8 +117,8 @@
         </div>
 
         <!-- Reflexión final -->
-        <div class="section-card" style="border-left-color: #8B5CF6;">
-            <h6 class="fw-bold" style="color: #8B5CF6;"><i class="fas fa-thumbs-up me-2"></i> Reflexión final</h6>
+        <div class="section-card" style="border-left-color: var(--primary-lavender);">
+            <h6 class="fw-bold" style="color: var(--primary-lavender);"><i class="fas fa-thumbs-up me-2"></i> Reflexión final</h6>
             <p class="fs-6">{{ leccion.reflexion }}</p>
         </div>
 
@@ -128,7 +126,7 @@
             <a href="{{ url_for('lecciones') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-2"></i> Volver
             </a>
-            <button class="btn btn-success" onclick="completarLeccion()">
+            <button class="btn btn-success" onclick="completarLeccion()" style="background: var(--primary-turquoise); border-color: var(--primary-turquoise);">
                 <i class="fas fa-check-circle me-2"></i> Completar lección
             </button>
         </div>
@@ -137,22 +135,16 @@
 
 {% block extra_js %}
 <script>
-// Datos de la lección
 const leccionData = {{ leccion | tojson | safe }};
 let selecciones = {};
 
 function seleccionarActividad(element, opcionIndex, actividadIndex) {
-    // Limpiar selecciones anteriores de esta actividad
     const parent = element.closest('.actividad-item');
     parent.querySelectorAll('.activity-option').forEach(el => {
         el.classList.remove('selected', 'correct', 'incorrect');
     });
     element.classList.add('selected');
-    
-    // Guardar selección
     selecciones[actividadIndex] = opcionIndex;
-    
-    // Mostrar botón verificar
     parent.querySelector('.btn-verificar').style.display = 'block';
     document.getElementById('resultado-' + actividadIndex).style.display = 'none';
 }
@@ -162,7 +154,6 @@ function verificarActividad(actividadIndex) {
         alert('Por favor selecciona una opción primero');
         return;
     }
-    
     const actividad = leccionData.actividades[actividadIndex];
     const correcta = actividad.respuesta_correcta;
     const resultado = document.getElementById('resultado-' + actividadIndex);
@@ -182,7 +173,6 @@ function verificarActividad(actividadIndex) {
 
 function completarLeccion() {
     if (!confirm('¿Completaste todas las actividades de esta lección?')) return;
-    
     fetch('/api/completar_leccion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

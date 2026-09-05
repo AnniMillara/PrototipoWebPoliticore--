@@ -13,13 +13,13 @@
         text-align: center;
     }
     .plan-card:hover {
-        border-color: #2563EB;
+        border-color: var(--primary-turquoise);
         transform: translateY(-4px);
         box-shadow: 0 8px 24px rgba(0,0,0,0.1);
     }
     .plan-card.selected {
-        border-color: #2563EB;
-        background: #DBEAFE;
+        border-color: var(--primary-turquoise);
+        background: rgba(20,184,166,0.1);
     }
     .plan-card .price {
         font-size: 2.5rem;
@@ -32,7 +32,7 @@
         color: #64748B;
     }
     .plan-card .badge-popular {
-        background: #F59E0B;
+        background: var(--primary-amber);
         color: white;
         padding: 2px 12px;
         border-radius: 50px;
@@ -50,7 +50,7 @@
         font-size: 0.9rem;
     }
     .plan-card ul li i {
-        color: #10B981;
+        color: var(--primary-turquoise);
         margin-right: 8px;
     }
 </style>
@@ -62,13 +62,12 @@
         <div class="col-lg-8">
             <div class="card-modern">
                 <div class="text-center mb-4">
-                    <i class="fas fa-crown text-warning" style="font-size: 3rem;"></i>
+                    <i class="fas fa-crown text-warning" style="font-size: 3rem; color: var(--primary-amber);"></i>
                     <h2 class="fw-bold mt-2">Registro Profesor Premium</h2>
                     <p class="text-muted">Elige tu plan y comienza a enseñar con PolitiCore</p>
                 </div>
 
                 <form method="POST" id="registroForm">
-                    <!-- Datos personales -->
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Nombre completo</label>
@@ -90,7 +89,6 @@
 
                     <hr class="my-4">
 
-                    <!-- Planes -->
                     <h5 class="fw-bold mb-3">Selecciona tu plan</h5>
                     <div class="row g-3">
                         <!-- Plan Mensual -->
@@ -123,11 +121,9 @@
 
                     <input type="hidden" name="plan" id="planSeleccionado" value="mensual">
 
-                    <!-- Botón de pago simulado -->
                     <div class="mt-4">
-                        <button type="button" class="btn btn-warning w-100 py-3 fw-bold" onclick="simularPagoYRegistrar()" style="font-size: 1.1rem;">
-                            <i class="fas fa-credit-card me-2"></i> 
-                            Simular pago y registrarse
+                        <button type="button" class="btn w-100 py-3 fw-bold" onclick="simularPagoYRegistrar()" style="font-size: 1.1rem; background: var(--primary-amber); color: var(--gray-dark); border-color: var(--primary-amber);">
+                            <i class="fas fa-credit-card me-2"></i> Simular pago y registrarse
                         </button>
                         <p class="text-muted text-center small mt-2">
                             🔒 Demo: No se realizará ningún cobro real
@@ -139,7 +135,7 @@
 
                 <p class="text-center mb-0">
                     ¿Ya tienes cuenta?
-                    <a href="{{ url_for('login') }}" class="text-primary fw-semibold">Inicia sesión aquí</a>
+                    <a href="{{ url_for('login') }}" style="color: var(--primary-turquoise); font-weight: 600;">Inicia sesión aquí</a>
                 </p>
             </div>
         </div>
@@ -147,31 +143,21 @@
 </div>
 
 <script>
-// Seleccionar plan
 function seleccionarPlan(plan) {
-    document.querySelectorAll('.plan-card').forEach(card => {
-        card.classList.remove('selected');
-    });
-    
+    document.querySelectorAll('.plan-card').forEach(card => card.classList.remove('selected'));
     if (plan === 'mensual') {
         document.getElementById('planMensual').classList.add('selected');
     } else {
         document.getElementById('planAnual').classList.add('selected');
     }
-    
     document.getElementById('planSeleccionado').value = plan;
 }
 
-// Simular pago y registrar
 function simularPagoYRegistrar() {
     const btn = event.target;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Procesando pago simulado...';
-    
     const plan = document.getElementById('planSeleccionado').value;
-    const precio = plan === 'anual' ? 11000 : 1000;
-    
-    // Simular el pago
     fetch('/api/simular_pago', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -180,10 +166,7 @@ function simularPagoYRegistrar() {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            // Mostrar mensaje de éxito
-            alert(`✅ ¡Pago simulado exitoso! Se cobraron $${precio} CLP (Demo)`);
-            
-            // Enviar el formulario
+            alert(`✅ ¡Pago simulado exitoso! Se cobraron $${data.precio} CLP (Demo)`);
             document.getElementById('registroForm').submit();
         } else {
             alert('❌ Error en la simulación de pago');

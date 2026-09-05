@@ -10,56 +10,61 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/admin.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>
 
 <body>
-    <!-- ============================================ -->
     <!-- NAVBAR -->
-    <!-- ============================================ -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="fas fa-gem text-primary me-2"></i>
-                <span class="fw-bold">PolitiCore</span>
+                <span class="logo-container">
+                    <img src="{{ url_for('static', filename='img/logo-politicore.png') }}" alt="PolitiCore"
+                        style="height:60px; width:auto;">
+                </span>
+                <span class="fw-bold" style="color: var(--primary-turquoise);">PolitiCore</span>
             </a>
             <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto align-items-lg-center">
-                    <!-- Inicio -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}"
                             href="{{ url_for('index') }}">
                             <i class="fas fa-home me-1"></i> Inicio
                         </a>
                     </li>
-                    <!-- Estado de Chile -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'estado' %}active{% endif %}"
                             href="{{ url_for('estado') }}">
-                            <i class="fas fa-landmark me-1"></i> Estado de Chile
+                            <i class="fas fa-landmark me-1"></i> Estado
                         </a>
                     </li>
-                    <!-- Lecciones -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'lecciones' %}active{% endif %}"
                             href="{{ url_for('lecciones') }}">
                             <i class="fas fa-graduation-cap me-1"></i> Lecciones
                         </a>
                     </li>
-                    <!-- Simulación -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'simulacion' %}active{% endif %}"
                             href="{{ url_for('simulacion') }}">
                             <i class="fas fa-gamepad me-1"></i> Simulación
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'foro_index' %}active{% endif %}"
+                            href="{{ url_for('foro_index') }}">
+                            <i class="fas fa-comments me-1"></i> Foro
+                            {% if current_user.is_authenticated %}
+                            <span id="notificacion-badge" class="badge bg-danger rounded-pill"
+                                style="display:none; font-size:0.6rem;"></span>
+                            {% endif %}
+                        </a>
+                    </li>
 
-                    <!-- ============================================ -->
-                    <!-- USUARIO AUTENTICADO -->
-                    <!-- ============================================ -->
                     {% if current_user.is_authenticated %}
                     <!-- Perfil -->
                     <li class="nav-item">
@@ -69,9 +74,9 @@
                         </a>
                     </li>
 
-                    <!-- Para estudiantes -->
+                    <!-- Estudiante -->
                     {% if current_user.is_authenticated and not current_user.is_docente and not current_user.is_admin
-                    and not current_user.is_super_admin%}
+                    and not current_user.is_super_admin %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'estudiante_mis_clases' %}active{% endif %}"
                             href="{{ url_for('estudiante_mis_clases') }}">
@@ -81,13 +86,12 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'estudiante_unirse' %}active{% endif %}"
                             href="{{ url_for('estudiante_unirse') }}">
-                            <i class="fas fa-door-open me-1"></i> Unirse a clase
+                            <i class="fas fa-door-open me-1"></i> Unirse
                         </a>
                     </li>
                     {% endif %}
-                    <!-- ============================================ -->
-                    <!-- PROFESOR - SIEMPRE PREMIUM -->
-                    <!-- ============================================ -->
+
+                    <!-- Profesor Premium -->
                     {% if current_user.is_docente %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="profesorDropdown" role="button"
@@ -96,23 +100,22 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{{ url_for('profesor_tareas') }}">
-                                    <i class="fas fa-download me-2"></i> Material de Tareas
+                                    <i class="fas fa-download me-2"></i> Tareas
                                 </a></li>
                             <li><a class="dropdown-item" href="{{ url_for('profesor_salas') }}">
-                                    <i class="fas fa-chalkboard me-2"></i> Mis Salas de Clase
+                                    <i class="fas fa-chalkboard me-2"></i> Salas
                                 </a></li>
                         </ul>
                     </li>
-                    <li class="nav-item dropdown">
-                        <span class="badge bg-warning text-dark ms-1" style="padding: 6px 12px;">
+                    <li class="nav-item">
+                        <span class="badge"
+                            style="background: var(--primary-amber); color: var(--gray-dark); padding: 6px 12px;">
                             <i class="fas fa-crown me-1"></i> Premium
                         </span>
                     </li>
                     {% endif %}
 
-                    <!-- ============================================ -->
-                    <!-- ADMIN -->
-                    <!-- ============================================ -->
+                    <!-- Admin -->
                     {% if current_user.is_admin or current_user.is_super_admin %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button"
@@ -130,12 +133,11 @@
                                     <i class="fas fa-gamepad me-2"></i> Simulaciones
                                 </a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_cartas_evento') }}">
-                                    <i class="fas fa-cards me-2"></i> Cartas de Evento
+                                    <i class="fas fa-cards me-2"></i> Cartas
                                 </a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_rutas_alternativas') }}">
-                                    <i class="fas fa-route me-2"></i> Rutas Alternativas
+                                    <i class="fas fa-route me-2"></i> Rutas
                                 </a></li>
-                            <!-- ===== NUEVO: Propuestas ===== -->
                             <li><a class="dropdown-item" href="{{ url_for('admin_propuestas') }}">
                                     <i class="fas fa-file-signature me-2"></i> Propuestas
                                 </a></li>
@@ -157,19 +159,19 @@
                     </li>
                     {% endif %}
 
-                    <!-- Cerrar Sesión -->
+                    <!-- Logout -->
                     <li class="nav-item">
                         <a class="btn btn-outline-danger btn-sm ms-2" href="{{ url_for('logout') }}">
                             <i class="fas fa-sign-out-alt me-1"></i> Salir
                         </a>
                     </li>
 
-                    <!-- ============================================ -->
-                    <!-- USUARIO NO AUTENTICADO -->
-                    <!-- ============================================ -->
                     {% else %}
+                    <!-- No autenticado -->
                     <li class="nav-item">
-                        <a class="btn btn-primary btn-sm ms-2" href="{{ url_for('login') }}">
+                        <a class="btn"
+                            style="background: var(--primary-turquoise); color: white; border: none; font-weight: 500; margin-left: 8px;"
+                            href="{{ url_for('login') }}">
                             <i class="fas fa-sign-in-alt me-1"></i> Iniciar Sesión
                         </a>
                     </li>
@@ -184,9 +186,7 @@
         </div>
     </nav>
 
-    <!-- ============================================ -->
     <!-- FLASH MESSAGES -->
-    <!-- ============================================ -->
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
     <div class="container mt-3" style="padding-top: 76px;">
@@ -200,16 +200,12 @@
     {% endif %}
     {% endwith %}
 
-    <!-- ============================================ -->
     <!-- CONTENIDO PRINCIPAL -->
-    <!-- ============================================ -->
     <div class="content-wrapper">
         {% block content %}{% endblock %}
     </div>
 
-    <!-- ============================================ -->
     <!-- FOOTER -->
-    <!-- ============================================ -->
     <footer class="footer">
         <div class="container">
             <div class="row align-items-center">
@@ -228,12 +224,30 @@
         </div>
     </footer>
 
-    <!-- ============================================ -->
-    <!-- SCRIPTS -->
-    <!-- ============================================ -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    {% block extra_js %}{% endblock %}
+    {% if current_user.is_authenticated %}
+    <script>
+        // Verificar notificaciones cada 30 segundos
+        function checkNotifications() {
+            fetch('{{ url_for("foro_notificaciones") }}')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.notificaciones && data.notificaciones.length > 0) {
+                        const badge = document.getElementById('notificacion-badge');
+                        badge.textContent = data.notificaciones.length;
+                        badge.style.display = 'inline-block';
+                    }
+                })
+                .catch(err => console.log('Error al obtener notificaciones'));
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            checkNotifications();
+            setInterval(checkNotifications, 30000);
+        });
+    </script>
+    {% endif %}
 </body>
 
 </html>
