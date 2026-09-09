@@ -57,7 +57,7 @@
                 <!-- FOTO DE PERFIL CON SUBIDA -->
                 <div class="d-flex flex-column align-items-center">
                     {% if usuario and usuario.foto_perfil %}
-                    <img src="{{ usuario.foto_perfil }}" alt="Foto perfil" class="profile-avatar" id="fotoPerfilPreview">
+                    <img src="{{ url_for('static', filename=usuario.foto_perfil) }}" alt="Foto perfil" class="profile-avatar" id="fotoPerfilPreview">
                     {% else %}
                     <div class="profile-avatar-placeholder" id="fotoPerfilPreview">
                         <i class="fas fa-user"></i>

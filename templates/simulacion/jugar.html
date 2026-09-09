@@ -78,6 +78,11 @@
         border-radius: 4px;
         transition: width 0.8s ease;
     }
+    .final-resumen {
+        white-space: pre-line;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
 </style>
 {% endblock %}
 
@@ -140,7 +145,7 @@
         {% if escena.tipo == 'final' %}
         <div class="mt-4 p-4 bg-light rounded-3">
             <h6 class="fw-bold"><i class="fas fa-lightbulb text-warning me-2" style="color: var(--primary-amber);"></i> Reflexión</h6>
-            <p>{{ escena.reflexion }}</p>
+            <div class="final-resumen">{{ escena.reflexion }}</div>
             <a href="{{ url_for('simulacion') }}" class="btn btn-primary mt-2" style="background: var(--primary-turquoise); border-color: var(--primary-turquoise);">
                 <i class="fas fa-arrow-left me-2"></i> Volver a simulaciones
             </a>
