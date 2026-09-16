@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
+from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, send_from_directory
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
@@ -57,6 +57,10 @@ def get_db_connection():
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True
     )
+
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -167,6 +171,46 @@ def get_noticias_from_db():
     except Exception as e:
         print(f"Error cargando noticias: {e}")
         return []
+
+@app.route('/noticias')
+def noticias():
+    """Listado público completo de noticias activas"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM noticias
+            WHERE activa = 1
+            ORDER BY destacada DESC, fecha DESC, fecha_publicacion DESC
+        """)
+        noticias = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error en /noticias: {e}")
+        noticias = []
+    return render_template('noticias/index.html', noticias=noticias)
+
+
+@app.route('/noticia/<int:id>')
+def noticia_detalle(id):
+    """Detalle público de una noticia"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM noticias WHERE id = %s AND activa = 1", (id,))
+        noticia = cur.fetchone()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error en /noticia/{id}: {e}")
+        noticia = None
+
+    if not noticia:
+        flash('Noticia no encontrada', 'danger')
+        return redirect(url_for('noticias'))
+
+    return render_template('noticias/detalle.html', noticia=noticia)
 
 @app.route('/')
 def index():
@@ -589,6 +633,96 @@ def lecciones():
         print(f"Error en lecciones: {e}")
         mundos = []
     return render_template('lecciones/index.html', mundos=mundos)
+
+# ======================== DESCARGAS ========================
+
+@app.route('/descargas')
+def descargas():
+    """Material de descarga público"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM descargas
+            WHERE activo = TRUE
+            ORDER BY fecha_creacion DESC
+        """)
+        descargas = cur.fetchall()
+        cur.close(); conn.close()
+    except Exception as e:
+        print(f"descargas: {e}")
+        descargas = []
+    return render_template('descargas.html', descargas=descargas)
+
+
+@app.route('/admin/descargas')
+@login_required
+@admin_required
+def admin_descargas():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM descargas ORDER BY fecha_creacion DESC")
+        descargas = cur.fetchall()
+        cur.close(); conn.close()
+    except Exception:
+        descargas = []
+    return render_template('admin/descargas.html', descargas=descargas)
+
+
+@app.route('/admin/descarga/nueva', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_descarga_nueva():
+    if request.method == 'POST':
+        titulo = request.form.get('titulo', '').strip()
+        descripcion = request.form.get('descripcion', '').strip()
+        categoria = request.form.get('categoria', 'General').strip()
+        archivo_url = None
+
+        if 'archivo' in request.files:
+            file = request.files['archivo']
+            if file and file.filename and allowed_file(file.filename):
+                nombre = secure_filename(file.filename)
+                final = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{nombre}"
+                ruta = os.path.join(app.config['UPLOAD_FOLDER'], 'descargas', final)
+                os.makedirs(os.path.dirname(ruta), exist_ok=True)
+                file.save(ruta)
+                archivo_url = f'/uploads/descargas/{final}'
+
+        if not titulo or not archivo_url:
+            flash('Título y archivo son obligatorios', 'danger')
+            return redirect(url_for('admin_descarga_nueva'))
+
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO descargas (titulo, descripcion, archivo_url, categoria, creado_por)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (titulo, descripcion, archivo_url, categoria, current_user.id))
+            conn.commit()
+            cur.close(); conn.close()
+            flash('✅ Descarga creada', 'success')
+            return redirect(url_for('admin_descargas'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+    return render_template('admin/descarga_form.html', descarga=None)
+
+
+@app.route('/admin/descarga/eliminar/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def admin_descarga_eliminar(id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM descargas WHERE id=%s", (id,))
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/leccion/<int:id>')
 def detalle_leccion(id):
@@ -2349,25 +2483,54 @@ def admin_noticias():
 def admin_noticia_nueva():
     if request.method == 'POST':
         try:
-            titulo = request.form.get('titulo')
-            descripcion = request.form.get('descripcion')
+            titulo = request.form.get('titulo', '').strip()
+            descripcion = request.form.get('descripcion', '').strip()
+            contenido = request.form.get('contenido', '').strip()
+            por_que_importa = request.form.get('por_que_importa', '').strip()
+            como_te_afecta = request.form.get('como_te_afecta', '').strip()
+            contexto = request.form.get('contexto', '').strip()
             fecha = request.form.get('fecha')
-            icono = request.form.get('icono', 'circle')
+            icono = request.form.get('icono', 'newspaper')
+            url = request.form.get('url', '').strip() or None
+            categoria = request.form.get('categoria', '').strip() or None
+            imagen = None
             activa = 1 if request.form.get('activa') else 0
             destacada = 1 if request.form.get('destacada') else 0
+
+            # Prioridad 1: archivo subido
+            if 'imagen_archivo' in request.files:
+                file = request.files['imagen_archivo']
+                if file and file.filename and allowed_file(file.filename):
+                    nombre_seguro = secure_filename(file.filename)
+                    nombre_final = f"noticia_{datetime.now().strftime('%Y%m%d%H%M%S')}_{nombre_seguro}"
+                    carpeta = os.path.join(app.config['UPLOAD_FOLDER'], 'noticias')
+                    os.makedirs(carpeta, exist_ok=True)
+                    file.save(os.path.join(carpeta, nombre_final))
+                    imagen = f"uploads/noticias/{nombre_final}"
+
+            # Prioridad 2: URL externa
+            if not imagen:
+                url_img = request.form.get('imagen_url', '').strip()
+                if url_img:
+                    imagen = url_img
+
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute("""
-                INSERT INTO noticias (titulo, descripcion, fecha, icono, activa, destacada)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (titulo, descripcion, fecha, icono, activa, destacada))
+                INSERT INTO noticias (
+                    titulo, descripcion, contenido, por_que_importa, como_te_afecta,
+                    contexto, fecha, icono, url, categoria, imagen, activa, destacada
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (titulo, descripcion, contenido, por_que_importa, como_te_afecta,
+                  contexto, fecha, icono, url, categoria, imagen, activa, destacada))
             conn.commit()
             cur.close()
             conn.close()
             flash('¡Noticia creada!', 'success')
             return redirect(url_for('admin_noticias'))
         except Exception as e:
-            flash('Error al crear la noticia', 'danger')
+            print(f"admin_noticia_nueva: {e}")
+            flash(f'Error al crear: {e}', 'danger')
     return render_template('admin/noticia_form.html', noticia=None)
 
 @app.route('/admin/noticia/editar/<int:id>', methods=['GET', 'POST'])
@@ -2378,29 +2541,75 @@ def admin_noticia_editar(id):
         conn = get_db_connection()
         cur = conn.cursor()
         if request.method == 'POST':
-            titulo = request.form.get('titulo')
-            descripcion = request.form.get('descripcion')
+            titulo = request.form.get('titulo', '').strip()
+            descripcion = request.form.get('descripcion', '').strip()
+            contenido = request.form.get('contenido', '').strip()
+            por_que_importa = request.form.get('por_que_importa', '').strip()
+            como_te_afecta = request.form.get('como_te_afecta', '').strip()
+            contexto = request.form.get('contexto', '').strip()
             fecha = request.form.get('fecha')
-            icono = request.form.get('icono', 'circle')
+            icono = request.form.get('icono', 'newspaper')
+            url = request.form.get('url', '').strip() or None
+            categoria = request.form.get('categoria', '').strip() or None
             activa = 1 if request.form.get('activa') else 0
             destacada = 1 if request.form.get('destacada') else 0
+
+            # Obtener imagen actual
+            cur.execute("SELECT imagen FROM noticias WHERE id = %s", (id,))
+            actual = cur.fetchone()
+            imagen = actual['imagen'] if actual else None
+
+            # Prioridad: archivo subido
+            if 'imagen_archivo' in request.files:
+                file = request.files['imagen_archivo']
+                if file and file.filename and allowed_file(file.filename):
+                    # Borrar imagen anterior si era local
+                    if imagen and not imagen.startswith('http'):
+                        ruta_vieja = os.path.join(app.config['UPLOAD_FOLDER'], imagen.replace('uploads/', ''))
+                        if os.path.exists(ruta_vieja):
+                            os.remove(ruta_vieja)
+                    nombre_seguro = secure_filename(file.filename)
+                    nombre_final = f"noticia_{datetime.now().strftime('%Y%m%d%H%M%S')}_{nombre_seguro}"
+                    carpeta = os.path.join(app.config['UPLOAD_FOLDER'], 'noticias')
+                    os.makedirs(carpeta, exist_ok=True)
+                    file.save(os.path.join(carpeta, nombre_final))
+                    imagen = f"uploads/noticias/{nombre_final}"
+
+            # Si pegaron URL
+            url_img = request.form.get('imagen_url', '').strip()
+            if url_img:
+                imagen = url_img
+
+            # Si marcaron "quitar imagen"
+            if request.form.get('quitar_imagen'):
+                if imagen and not imagen.startswith('http'):
+                    ruta_vieja = os.path.join(app.config['UPLOAD_FOLDER'], imagen.replace('uploads/', ''))
+                    if os.path.exists(ruta_vieja):
+                        os.remove(ruta_vieja)
+                imagen = None
+
             cur.execute("""
-                UPDATE noticias 
-                SET titulo = %s, descripcion = %s, fecha = %s, icono = %s, activa = %s, destacada = %s
-                WHERE id = %s
-            """, (titulo, descripcion, fecha, icono, activa, destacada, id))
+                UPDATE noticias
+                SET titulo=%s, descripcion=%s, contenido=%s, por_que_importa=%s,
+                    como_te_afecta=%s, contexto=%s, fecha=%s, icono=%s, url=%s,
+                    categoria=%s, imagen=%s, activa=%s, destacada=%s
+                WHERE id=%s
+            """, (titulo, descripcion, contenido, por_que_importa, como_te_afecta,
+                  contexto, fecha, icono, url, categoria, imagen, activa, destacada, id))
             conn.commit()
             cur.close()
             conn.close()
             flash('¡Noticia actualizada!', 'success')
             return redirect(url_for('admin_noticias'))
+
         cur.execute("SELECT * FROM noticias WHERE id = %s", (id,))
         noticia = cur.fetchone()
         cur.close()
         conn.close()
         return render_template('admin/noticia_form.html', noticia=noticia)
     except Exception as e:
-        flash('Error al editar', 'danger')
+        print(f"admin_noticia_editar: {e}")
+        flash(f'Error al editar: {e}', 'danger')
         return redirect(url_for('admin_noticias'))
 
 @app.route('/admin/noticia/eliminar/<int:id>', methods=['POST'])
@@ -2793,297 +3002,801 @@ def admin_usuario_eliminar(id):
 
 # ======================== FORO ========================
 
-def contar_respuestas(tema_id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) as total FROM foro_respuestas WHERE tema_id = %s AND activo = 1", (tema_id,))
-        result = cur.fetchone()
-        cur.close()
-        conn.close()
-        return result['total'] if result else 0
-    except:
-        return 0
+import re
+from markupsafe import Markup, escape
+
+# ---------- Utilidades ----------
+def sanitizar_markdown(texto):
+    """Convierte un subconjunto seguro de markdown a HTML. Escapa todo lo demás."""
+    if not texto:
+        return ''
+    t = str(escape(texto))
+    # Enlaces [texto](url) — solo http/https
+    t = re.sub(
+        r'\[([^\]]+)\]\((https?://[^\s)]+)\)',
+        r'<a href="\2" target="_blank" rel="noopener noreferrer">\1</a>',
+        t
+    )
+    # Negrita **texto**
+    t = re.sub(r'\*\*([^\*]+)\*\*', r'<strong>\1</strong>', t)
+    # Cursiva *texto*
+    t = re.sub(r'(?<!\*)\*([^\*]+)\*(?!\*)', r'<em>\1</em>', t)
+    # Imágenes ![alt](url)
+    t = re.sub(
+        r'!\[([^\]]*)\]\((https?://[^\s)]+)\)',
+        r'<img src="\2" alt="\1" class="img-fluid rounded my-2" loading="lazy">',
+        t
+    )
+    # Saltos de línea
+    t = t.replace('\n', '<br>')
+    return Markup(t)
+
+
+# ↓↓↓ ESTA LÍNEA VA APARTE, SIN SANGRÍA ↓↓↓
+app.jinja_env.globals['sanitizar_markdown'] = sanitizar_markdown
+
 
 def contar_votos(tema_id=None, respuesta_id=None):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         if tema_id:
-            cur.execute("SELECT SUM(CASE WHEN tipo='up' THEN 1 WHEN tipo='down' THEN -1 ELSE 0 END) as total FROM foro_votos WHERE tema_id = %s", (tema_id,))
+            cur.execute("SELECT COALESCE(SUM(CASE WHEN tipo='up' THEN 1 WHEN tipo='down' THEN -1 END),0) AS total FROM foro_votos WHERE tema_id=%s", (tema_id,))
         else:
-            cur.execute("SELECT SUM(CASE WHEN tipo='up' THEN 1 WHEN tipo='down' THEN -1 ELSE 0 END) as total FROM foro_votos WHERE respuesta_id = %s", (respuesta_id,))
-        result = cur.fetchone()
-        cur.close()
-        conn.close()
-        return result['total'] if result and result['total'] is not None else 0
-    except:
+            cur.execute("SELECT COALESCE(SUM(CASE WHEN tipo='up' THEN 1 WHEN tipo='down' THEN -1 END),0) AS total FROM foro_votos WHERE respuesta_id=%s", (respuesta_id,))
+        r = cur.fetchone()
+        cur.close(); conn.close()
+        return int(r['total']) if r else 0
+    except Exception as e:
+        print(f"contar_votos: {e}")
         return 0
+
 
 def notificar_usuario(usuario_id, tipo, mensaje, enlace=None):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("INSERT INTO foro_notificaciones (usuario_id, tipo, mensaje, enlace) VALUES (%s, %s, %s, %s)", (usuario_id, tipo, mensaje, enlace))
-        conn.commit()
-        cur.close()
-        conn.close()
+        cur.execute(
+            "INSERT INTO foro_notificaciones (usuario_id, tipo, mensaje, enlace) VALUES (%s,%s,%s,%s)",
+            (usuario_id, tipo, mensaje[:250], enlace)
+        )
+        conn.commit(); cur.close(); conn.close()
         return True
-    except:
+    except Exception as e:
+        print(f"notificar_usuario: {e}")
         return False
 
-def enviar_email_notificacion(destinatario_email, asunto, cuerpo):
-    try:
-        if not app.config['MAIL_USERNAME']:
-            return False
-        msg = Message(asunto, recipients=[destinatario_email])
-        msg.body = cuerpo
-        mail.send(msg)
-        return True
-    except:
-        return False
 
+def _es_admin(user):
+    return user.is_authenticated and user.is_admin_or_super
+
+
+def _puede_editar(user, autor_id, estado='activo'):
+    """Autor puede editar mientras no esté oculto. Admin siempre."""
+    if not user.is_authenticated:
+        return False
+    if _es_admin(user):
+        return True
+    return user.id == autor_id and estado != 'oculto'
+
+
+# ---------- Listado principal ----------
 @app.route('/foro')
 def foro_index():
-    page = request.args.get('page', 1, type=int)
-    per_page = 10
-    categoria = request.args.get('categoria', 'todas')
+    page       = request.args.get('page', 1, type=int)
+    per_page   = 10
+    categoria  = request.args.get('categoria', '', type=str)
+    buscar     = request.args.get('q', '', type=str).strip()
+    orden      = request.args.get('orden', 'recientes', type=str)
+
+    if page < 1:
+        page = 1
+
+    orden_sql = {
+        'recientes':  't.created_at DESC',
+        'comentados': 'total_respuestas DESC, t.created_at DESC',
+        'actividad':  'COALESCE(ultima_actividad, t.created_at) DESC',
+        'vistos':     't.vistas DESC, t.created_at DESC',
+    }.get(orden, 't.created_at DESC')
+
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        query = """
-            SELECT t.*, u.nombre as autor_nombre, 
-                   (SELECT COUNT(*) FROM foro_respuestas WHERE tema_id = t.id AND activo = 1) as total_respuestas,
-                   (SELECT SUM(CASE WHEN tipo='up' THEN 1 WHEN tipo='down' THEN -1 ELSE 0 END) FROM foro_votos WHERE tema_id = t.id) as votos,
-                   (SELECT MAX(creado_en) FROM foro_respuestas WHERE tema_id = t.id AND activo = 1) as ultima_respuesta
-            FROM foro_temas t
-            JOIN usuarios u ON t.usuario_id = u.id
-            WHERE t.activo = 1
-        """
-        params = []
-        if categoria != 'todas':
-            query += " AND t.categoria = %s"
-            params.append(categoria)
-        query += " ORDER BY t.creado_en DESC LIMIT %s OFFSET %s"
-        offset = (page - 1) * per_page
-        params.extend([per_page, offset])
-        cur.execute(query, params)
-        temas = cur.fetchall()
-        count_query = "SELECT COUNT(*) as total FROM foro_temas t WHERE t.activo = 1"
-        if categoria != 'todas':
-            count_query += " AND t.categoria = %s"
-            cur.execute(count_query, (categoria,))
-        else:
-            cur.execute(count_query)
-        total = cur.fetchone()['total']
-        cur.close()
-        conn.close()
-        total_paginas = (total + per_page - 1) // per_page
-        return render_template('foro/index.html', temas=temas, page=page, total_paginas=total_paginas, categoria_actual=categoria)
-    except Exception as e:
-        flash(f'Error al cargar el foro: {e}', 'danger')
-        return render_template('foro/index.html', temas=[], page=1, total_paginas=0, categoria_actual='todas')
 
+        # Categorías para el sidebar
+        cur.execute("SELECT * FROM foro_categorias WHERE activa=1 ORDER BY orden")
+        categorias = cur.fetchall()
+
+        # Filtros
+        where = ["t.estado = 'activo'"]
+        params = []
+        if categoria:
+            where.append("c.slug = %s")
+            params.append(categoria)
+        if buscar:
+            where.append("(t.titulo LIKE %s OR t.contenido LIKE %s)")
+            params.extend([f'%{buscar}%', f'%{buscar}%'])
+
+        where_sql = " AND ".join(where)
+
+        # Consulta de temas
+        sql = f"""
+            SELECT t.*,
+                   u.nombre AS autor_nombre,
+                   u.foto_perfil AS autor_foto,
+                   c.nombre AS categoria_nombre,
+                   c.slug   AS categoria_slug,
+                   c.color  AS categoria_color,
+                   c.icono  AS categoria_icono,
+                   (SELECT COUNT(*) FROM foro_respuestas r
+                      WHERE r.tema_id = t.id AND r.estado='activo') AS total_respuestas,
+                   (SELECT COALESCE(SUM(CASE WHEN tipo='up' THEN 1 WHEN tipo='down' THEN -1 END),0)
+                      FROM foro_votos WHERE tema_id = t.id) AS votos,
+                   (SELECT MAX(created_at) FROM foro_respuestas r
+                      WHERE r.tema_id = t.id AND r.estado='activo') AS ultima_actividad
+            FROM foro_temas t
+            JOIN usuarios u       ON t.usuario_id = u.id
+            JOIN foro_categorias c ON t.categoria_id = c.id
+            WHERE {where_sql}
+            ORDER BY t.fijado DESC, {orden_sql}
+            LIMIT %s OFFSET %s
+        """
+        cur.execute(sql, params + [per_page, (page - 1) * per_page])
+        temas = cur.fetchall()
+
+        # Total para paginación
+        cur.execute(f"""
+            SELECT COUNT(*) AS total
+            FROM foro_temas t
+            JOIN foro_categorias c ON t.categoria_id = c.id
+            WHERE {where_sql}
+        """, params)
+        total = cur.fetchone()['total']
+
+        # Estadísticas laterales
+        cur.execute("SELECT COUNT(*) AS c FROM foro_temas WHERE estado='activo'")
+        total_temas = cur.fetchone()['c']
+        cur.execute("SELECT COUNT(*) AS c FROM foro_respuestas WHERE estado='activo'")
+        total_resp = cur.fetchone()['c']
+        cur.execute("SELECT COUNT(*) AS c FROM usuarios WHERE activo=1")
+        total_users = cur.fetchone()['c']
+
+        # Notificaciones sin leer
+        no_leidas = 0
+        if current_user.is_authenticated:
+            cur.execute(
+                "SELECT COUNT(*) AS c FROM foro_notificaciones WHERE usuario_id=%s AND leido=0",
+                (current_user.id,)
+            )
+            no_leidas = cur.fetchone()['c']
+
+        cur.close(); conn.close()
+
+        total_paginas = (total + per_page - 1) // per_page if total else 0
+
+        return render_template(
+            'foro/index.html',
+            temas=temas,
+            categorias=categorias,
+            categoria_actual=categoria,
+            buscar=buscar,
+            orden=orden,
+            page=page,
+            total_paginas=total_paginas,
+            total_temas=total_temas,
+            total_respuestas=total_resp,
+            total_usuarios=total_users,
+            no_leidas=no_leidas,
+            sanitizar_markdown=sanitizar_markdown,
+        )
+
+    except Exception as e:
+        print(f"foro_index: {e}")
+        import traceback; traceback.print_exc()
+        flash('Error al cargar el foro', 'danger')
+        return render_template(
+            'foro/index.html',
+            temas=[], categorias=[], categoria_actual='', buscar='',
+            orden='recientes', page=1, total_paginas=0,
+            total_temas=0, total_respuestas=0, total_usuarios=0,
+            no_leidas=0, sanitizar_markdown=sanitizar_markdown,
+        )
+
+
+# ---------- Crear tema ----------
 @app.route('/foro/nuevo', methods=['GET', 'POST'])
 @login_required
 def foro_nuevo_tema():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM foro_categorias WHERE activa=1 ORDER BY orden")
+        categorias = cur.fetchall()
+        cur.close(); conn.close()
+    except Exception:
+        categorias = []
+
     if request.method == 'POST':
         titulo = request.form.get('titulo', '').strip()
         contenido = request.form.get('contenido', '').strip()
-        categoria = request.form.get('categoria', 'general')
-        noticia_id = request.form.get('noticia_id')
-        if not titulo or not contenido:
-            flash('El título y el contenido son obligatorios', 'danger')
-            return render_template('foro/nuevo.html', noticias=obtener_noticias_activas())
+        categoria_id = request.form.get('categoria_id', type=int)
+        noticia_id = request.form.get('noticia_id', type=int)
+
+        # Validaciones servidor
+        if not titulo or len(titulo) < 5:
+            flash('El título debe tener al menos 5 caracteres', 'danger')
+            return render_template('foro/nuevo.html', categorias=categorias, noticias=obtener_noticias_activas())
+        if len(titulo) > 150:
+            flash('El título no puede superar 150 caracteres', 'danger')
+            return render_template('foro/nuevo.html', categorias=categorias, noticias=obtener_noticias_activas())
+        if not contenido or len(contenido) < 15:
+            flash('El contenido debe tener al menos 15 caracteres', 'danger')
+            return render_template('foro/nuevo.html', categorias=categorias, noticias=obtener_noticias_activas())
+        if len(contenido) > 8000:
+            flash('El contenido es demasiado largo (máx 8000 caracteres)', 'danger')
+            return render_template('foro/nuevo.html', categorias=categorias, noticias=obtener_noticias_activas())
+        if not categoria_id:
+            flash('Debes elegir una categoría', 'danger')
+            return render_template('foro/nuevo.html', categorias=categorias, noticias=obtener_noticias_activas())
+
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("INSERT INTO foro_temas (titulo, contenido, usuario_id, categoria, noticia_id) VALUES (%s, %s, %s, %s, %s)", (titulo, contenido, current_user.id, categoria, noticia_id if noticia_id else None))
+            cur.execute("SELECT id FROM foro_categorias WHERE id=%s AND activa=1", (categoria_id,))
+            if not cur.fetchone():
+                flash('Categoría inválida', 'danger')
+                cur.close(); conn.close()
+                return render_template('foro/nuevo.html', categorias=categorias, noticias=obtener_noticias_activas())
+
+            cur.execute("""
+                INSERT INTO foro_temas (titulo, contenido, usuario_id, categoria_id, noticia_id)
+                VALUES (%s,%s,%s,%s,%s)
+            """, (titulo, contenido, current_user.id, categoria_id, noticia_id or None))
             conn.commit()
             tema_id = cur.lastrowid
-            cur.close()
-            conn.close()
-            flash('✅ Tema creado exitosamente', 'success')
+            cur.close(); conn.close()
+            flash('✅ Tema creado correctamente', 'success')
             return redirect(url_for('foro_ver_tema', tema_id=tema_id))
         except Exception as e:
-            flash(f'Error al crear el tema: {e}', 'danger')
-    noticias = obtener_noticias_activas()
-    return render_template('foro/nuevo.html', noticias=noticias)
+            print(f"foro_nuevo_tema: {e}")
+            flash('Error al crear el tema', 'danger')
 
+    return render_template('foro/nuevo.html', categorias=categorias,
+                           noticias=obtener_noticias_activas())
+
+
+# ---------- Ver tema ----------
 @app.route('/foro/tema/<int:tema_id>')
 def foro_ver_tema(tema_id):
     page = request.args.get('page', 1, type=int)
     per_page = 20
+    if page < 1: page = 1
+
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+
         cur.execute("UPDATE foro_temas SET vistas = vistas + 1 WHERE id = %s", (tema_id,))
         conn.commit()
+
         cur.execute("""
-            SELECT t.*, u.nombre as autor_nombre
+            SELECT t.*, u.nombre AS autor_nombre, u.foto_perfil AS autor_foto,
+                   c.nombre AS categoria_nombre, c.slug AS categoria_slug,
+                   c.color AS categoria_color, c.icono AS categoria_icono
             FROM foro_temas t
-            JOIN usuarios u ON t.usuario_id = u.id
-            WHERE t.id = %s AND t.activo = 1
+            JOIN usuarios u        ON t.usuario_id = u.id
+            JOIN foro_categorias c ON t.categoria_id = c.id
+            WHERE t.id = %s
         """, (tema_id,))
         tema = cur.fetchone()
+
         if not tema:
             flash('Tema no encontrado', 'danger')
+            cur.close(); conn.close()
             return redirect(url_for('foro_index'))
-        offset = (page - 1) * per_page
+
+        # Visibilidad: oculto solo admin/autor
+        if tema['estado'] == 'oculto' and not (
+            current_user.is_authenticated and
+            (_es_admin(current_user) or current_user.id == tema['usuario_id'])
+        ):
+            flash('Este tema no está disponible', 'warning')
+            cur.close(); conn.close()
+            return redirect(url_for('foro_index'))
+
+                # Cargar TODAS las respuestas activas del tema (una sola consulta)
         cur.execute("""
-            SELECT r.*, u.nombre as autor_nombre,
-                   (SELECT SUM(CASE WHEN tipo='up' THEN 1 WHEN tipo='down' THEN -1 ELSE 0 END) FROM foro_votos WHERE respuesta_id = r.id) as votos
+            SELECT r.*, u.nombre AS autor_nombre, u.foto_perfil AS autor_foto,
+                   (SELECT COALESCE(SUM(CASE WHEN tipo='up' THEN 1 WHEN tipo='down' THEN -1 END),0)
+                      FROM foro_votos WHERE respuesta_id = r.id) AS votos
             FROM foro_respuestas r
             JOIN usuarios u ON r.usuario_id = u.id
-            WHERE r.tema_id = %s AND r.activo = 1 AND r.respuesta_padre_id IS NULL
-            ORDER BY r.creado_en ASC
-            LIMIT %s OFFSET %s
-        """, (tema_id, per_page, offset))
-        respuestas = cur.fetchall()
-        for respuesta in respuestas:
-            cur.execute("""
-                SELECT r.*, u.nombre as autor_nombre,
-                       (SELECT SUM(CASE WHEN tipo='up' THEN 1 WHEN tipo='down' THEN -1 ELSE 0 END) FROM foro_votos WHERE respuesta_id = r.id) as votos
-                FROM foro_respuestas r
-                JOIN usuarios u ON r.usuario_id = u.id
-                WHERE r.respuesta_padre_id = %s AND r.activo = 1
-                ORDER BY r.creado_en ASC
-            """, (respuesta['id'],))
-            respuesta['respuestas_hijas'] = cur.fetchall()
-            for hija in respuesta['respuestas_hijas']:
-                cur.execute("""
-                    SELECT r.*, u.nombre as autor_nombre,
-                           (SELECT SUM(CASE WHEN tipo='up' THEN 1 WHEN tipo='down' THEN -1 ELSE 0 END) FROM foro_votos WHERE respuesta_id = r.id) as votos
-                    FROM foro_respuestas r
-                    JOIN usuarios u ON r.usuario_id = u.id
-                    WHERE r.respuesta_padre_id = %s AND r.activo = 1
-                    ORDER BY r.creado_en ASC
-                """, (hija['id'],))
-                hija['respuestas_hijas'] = cur.fetchall()
-        cur.execute("SELECT COUNT(*) as total FROM foro_respuestas WHERE tema_id = %s AND activo = 1 AND respuesta_padre_id IS NULL", (tema_id,))
-        total_respuestas = cur.fetchone()['total']
-        total_paginas = (total_respuestas + per_page - 1) // per_page
-        voto_usuario = {}
+            WHERE r.tema_id = %s AND r.estado='activo'
+            ORDER BY r.created_at ASC
+        """, (tema_id,))
+        todas_respuestas = cur.fetchall()
+
+        # Construir árbol en memoria (soporta N niveles)
+        respuestas_por_id = {r['id']: r for r in todas_respuestas}
+        for r in todas_respuestas:
+            r['respuestas_hijas'] = []
+        raices = []
+        for r in todas_respuestas:
+            padre = r.get('respuesta_padre_id')
+            if padre and padre in respuestas_por_id:
+                respuestas_por_id[padre]['respuestas_hijas'].append(r)
+            else:
+                raices.append(r)
+
+        # Paginación a nivel de raíces (los hijos van con su padre)
+        total_respuestas = len(todas_respuestas)
+        total_raices = len(raices)
+        inicio = (page - 1) * per_page
+        respuestas = raices[inicio:inicio + per_page]
+        total_paginas = (total_raices + per_page - 1) // per_page if total_raices else 0
+
+        # Voto del usuario actual
+        voto_usuario = {'tema': None, 'respuestas': {}}
         if current_user.is_authenticated:
-            cur.execute("SELECT tipo FROM foro_votos WHERE tema_id = %s AND usuario_id = %s", (tema_id, current_user.id))
-            voto_tema = cur.fetchone()
-            voto_usuario['tema'] = voto_tema['tipo'] if voto_tema else None
-            voto_usuario['respuestas'] = {}
-            for r in respuestas:
-                cur.execute("SELECT tipo FROM foro_votos WHERE respuesta_id = %s AND usuario_id = %s", (r['id'], current_user.id))
-                voto_resp = cur.fetchone()
-                voto_usuario['respuestas'][r['id']] = voto_resp['tipo'] if voto_resp else None
-        cur.close()
-        conn.close()
-        return render_template('foro/tema.html', tema=tema, respuestas=respuestas, page=page, total_paginas=total_paginas, total_respuestas=total_respuestas, voto_usuario=voto_usuario)
+            cur.execute("SELECT tipo FROM foro_votos WHERE tema_id=%s AND usuario_id=%s",
+                        (tema_id, current_user.id))
+            v = cur.fetchone()
+            voto_usuario['tema'] = v['tipo'] if v else None
+
+            if respuestas:
+                ids = [r['id'] for r in respuestas]
+                fmt = ','.join(['%s'] * len(ids))
+                cur.execute(
+                    f"SELECT respuesta_id, tipo FROM foro_votos WHERE usuario_id=%s AND respuesta_id IN ({fmt})",
+                    [current_user.id] + ids
+                )
+                for row in cur.fetchall():
+                    voto_usuario['respuestas'][row['respuesta_id']] = row['tipo']
+
+        votos_tema = contar_votos(tema_id=tema_id)
+        cur.close(); conn.close()
+
+        return render_template(
+            'foro/tema.html',
+            tema=tema,
+            respuestas=respuestas,
+            votos_tema=votos_tema,
+            voto_usuario=voto_usuario,
+            total_respuestas=total_respuestas,
+            page=page,
+            total_paginas=total_paginas,
+            sanitizar_markdown=sanitizar_markdown,
+        )
+
     except Exception as e:
-        flash(f'Error al cargar el tema: {e}', 'danger')
+        print(f"foro_ver_tema: {e}")
+        import traceback; traceback.print_exc()
+        flash('Error al cargar el tema', 'danger')
         return redirect(url_for('foro_index'))
 
+
+# ---------- Responder ----------
 @app.route('/foro/tema/<int:tema_id>/responder', methods=['POST'])
 @login_required
 def foro_responder(tema_id):
     contenido = request.form.get('contenido', '').strip()
-    respuesta_padre_id = request.form.get('respuesta_padre_id')
-    if not contenido:
-        flash('El contenido no puede estar vacío', 'danger')
+    padre_id = request.form.get('respuesta_padre_id', type=int)
+
+    if not contenido or len(contenido) < 2:
+        flash('La respuesta está vacía', 'danger')
         return redirect(url_for('foro_ver_tema', tema_id=tema_id))
+    if len(contenido) > 5000:
+        flash('La respuesta es demasiado larga (máx 5000)', 'danger')
+        return redirect(url_for('foro_ver_tema', tema_id=tema_id))
+
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT id, titulo, usuario_id FROM foro_temas WHERE id = %s AND activo = 1", (tema_id,))
+
+        cur.execute("SELECT id, estado, usuario_id, titulo FROM foro_temas WHERE id=%s", (tema_id,))
         tema = cur.fetchone()
         if not tema:
             flash('Tema no encontrado', 'danger')
+            cur.close(); conn.close()
             return redirect(url_for('foro_index'))
-        if respuesta_padre_id:
-            cur.execute("SELECT id FROM foro_respuestas WHERE id = %s AND activo = 1 AND tema_id = %s", (respuesta_padre_id, tema_id))
+
+        if tema['estado'] == 'cerrado' and not _es_admin(current_user):
+            flash('Este tema está cerrado', 'warning')
+            cur.close(); conn.close()
+            return redirect(url_for('foro_ver_tema', tema_id=tema_id))
+
+        if tema['estado'] == 'oculto' and not _es_admin(current_user):
+            flash('Tema no disponible', 'warning')
+            cur.close(); conn.close()
+            return redirect(url_for('foro_index'))
+
+        if padre_id:
+            cur.execute("SELECT id FROM foro_respuestas WHERE id=%s AND tema_id=%s AND estado='activo'",
+                        (padre_id, tema_id))
             if not cur.fetchone():
-                flash('Respuesta padre no válida', 'danger')
-                return redirect(url_for('foro_ver_tema', tema_id=tema_id))
+                padre_id = None
+
         cur.execute("""
             INSERT INTO foro_respuestas (tema_id, usuario_id, contenido, respuesta_padre_id)
-            VALUES (%s, %s, %s, %s)
-        """, (tema_id, current_user.id, contenido, respuesta_padre_id if respuesta_padre_id else None))
+            VALUES (%s,%s,%s,%s)
+        """, (tema_id, current_user.id, contenido, padre_id))
         conn.commit()
-        respuesta_id = cur.lastrowid
+        nueva_id = cur.lastrowid
+
+        # Notificar al autor del tema
         if tema['usuario_id'] != current_user.id:
-            tema_url = url_for('foro_ver_tema', tema_id=tema_id, _external=True)
-            mensaje = f"{current_user.nombre} respondió a tu tema: {contenido[:100]}..."
-            notificar_usuario(tema['usuario_id'], 'respuesta', mensaje, enlace=tema_url)
-            cur.execute("SELECT email, nombre FROM usuarios WHERE id = %s", (tema['usuario_id'],))
-            autor_data = cur.fetchone()
-            if autor_data and autor_data['email']:
-                asunto = f"Nueva respuesta en PolitiCore: {tema['titulo']}"
-                cuerpo = f"Hola {autor_data['nombre']},\n\n{current_user.nombre} ha respondido a tu tema:\n\n{contenido}\n\nPuedes verlo aquí: {tema_url}"
-                enviar_email_notificacion(autor_data['email'], asunto, cuerpo)
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash('✅ Respuesta agregada', 'success')
-        return redirect(url_for('foro_ver_tema', tema_id=tema_id) + '?page=1')
+            enlace = url_for('foro_ver_tema', tema_id=tema_id, _external=True) + f"#respuesta-{nueva_id}"
+            notificar_usuario(
+                tema['usuario_id'],
+                'respuesta',
+                f"{current_user.nombre} respondió a tu tema: {tema['titulo']}",
+                enlace=enlace
+            )
+
+        cur.close(); conn.close()
+        flash('✅ Respuesta publicada', 'success')
+        return redirect(url_for('foro_ver_tema', tema_id=tema_id) + f"#respuesta-{nueva_id}")
+
     except Exception as e:
-        flash(f'Error al responder: {e}', 'danger')
+        print(f"foro_responder: {e}")
+        flash('Error al responder', 'danger')
         return redirect(url_for('foro_ver_tema', tema_id=tema_id))
 
-@app.route('/foro/votar', methods=['POST'])
+
+# ---------- Editar tema ----------
+@app.route('/foro/tema/<int:tema_id>/editar', methods=['GET', 'POST'])
 @login_required
-def foro_votar():
-    data = request.json
-    tipo = data.get('tipo')
-    id_item = data.get('id')
-    voto = data.get('voto')
-    if not tipo or not id_item or voto not in ['up', 'down']:
-        return jsonify({'error': 'Datos inválidos'}), 400
+def foro_editar_tema(tema_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        if tipo == 'tema':
-            cur.execute("SELECT id FROM foro_temas WHERE id = %s AND activo = 1", (id_item,))
+        cur.execute("SELECT * FROM foro_temas WHERE id=%s", (tema_id,))
+        tema = cur.fetchone()
+
+        if not tema:
+            flash('Tema no encontrado', 'danger')
+            cur.close(); conn.close()
+            return redirect(url_for('foro_index'))
+
+        if not _puede_editar(current_user, tema['usuario_id'], tema['estado']):
+            flash('No puedes editar este tema', 'danger')
+            cur.close(); conn.close()
+            return redirect(url_for('foro_ver_tema', tema_id=tema_id))
+
+        if request.method == 'POST':
+            titulo = request.form.get('titulo', '').strip()
+            contenido = request.form.get('contenido', '').strip()
+            categoria_id = request.form.get('categoria_id', type=int)
+
+            if not titulo or len(titulo) < 5 or len(titulo) > 150:
+                flash('Título inválido', 'danger')
+                return redirect(url_for('foro_editar_tema', tema_id=tema_id))
+            if not contenido or len(contenido) < 15 or len(contenido) > 8000:
+                flash('Contenido inválido', 'danger')
+                return redirect(url_for('foro_editar_tema', tema_id=tema_id))
+
+            cur.execute("""
+                UPDATE foro_temas SET titulo=%s, contenido=%s, categoria_id=%s
+                WHERE id=%s
+            """, (titulo, contenido, categoria_id or tema['categoria_id'], tema_id))
+            conn.commit()
+            cur.close(); conn.close()
+            flash('✅ Tema actualizado', 'success')
+            return redirect(url_for('foro_ver_tema', tema_id=tema_id))
+
+        cur.execute("SELECT * FROM foro_categorias WHERE activa=1 ORDER BY orden")
+        categorias = cur.fetchall()
+        cur.close(); conn.close()
+        return render_template('foro/editar.html', tipo='tema', tema=tema, categorias=categorias)
+
+    except Exception as e:
+        print(f"foro_editar_tema: {e}")
+        flash('Error al editar', 'danger')
+        return redirect(url_for('foro_index'))
+
+
+# ---------- Editar respuesta ----------
+@app.route('/foro/respuesta/<int:respuesta_id>/editar', methods=['GET', 'POST'])
+@login_required
+def foro_editar_respuesta(respuesta_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM foro_respuestas WHERE id=%s", (respuesta_id,))
+        resp = cur.fetchone()
+
+        if not resp:
+            flash('Respuesta no encontrada', 'danger')
+            cur.close(); conn.close()
+            return redirect(url_for('foro_index'))
+
+        if not _puede_editar(current_user, resp['usuario_id'], resp['estado']):
+            flash('No puedes editar esta respuesta', 'danger')
+            cur.close(); conn.close()
+            return redirect(url_for('foro_ver_tema', tema_id=resp['tema_id']))
+
+        if request.method == 'POST':
+            contenido = request.form.get('contenido', '').strip()
+            if not contenido or len(contenido) < 2 or len(contenido) > 5000:
+                flash('Contenido inválido', 'danger')
+                return redirect(url_for('foro_editar_respuesta', respuesta_id=respuesta_id))
+
+            cur.execute("UPDATE foro_respuestas SET contenido=%s WHERE id=%s",
+                        (contenido, respuesta_id))
+            conn.commit()
+            cur.close(); conn.close()
+            flash('✅ Respuesta actualizada', 'success')
+            return redirect(url_for('foro_ver_tema', tema_id=resp['tema_id']))
+
+        cur.close(); conn.close()
+        return render_template('foro/editar.html', tipo='respuesta', respuesta=resp)
+    except Exception as e:
+        print(f"foro_editar_respuesta: {e}")
+        flash('Error al editar', 'danger')
+        return redirect(url_for('foro_index'))
+
+
+# ---------- Eliminar tema ----------
+@app.route('/foro/tema/<int:tema_id>/eliminar', methods=['POST'])
+@login_required
+def foro_eliminar_tema(tema_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT usuario_id FROM foro_temas WHERE id=%s", (tema_id,))
+        row = cur.fetchone()
+
+        if not row:
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'error': 'No encontrado'}), 404
+
+        if not (_es_admin(current_user) or current_user.id == row['usuario_id']):
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'error': 'Sin permisos'}), 403
+
+        cur.execute("DELETE FROM foro_temas WHERE id=%s", (tema_id,))
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ---------- Eliminar respuesta ----------
+@app.route('/foro/respuesta/<int:respuesta_id>/eliminar', methods=['POST'])
+@login_required
+def foro_eliminar_respuesta(respuesta_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT usuario_id FROM foro_respuestas WHERE id=%s", (respuesta_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'error': 'No encontrado'}), 404
+
+        if not (_es_admin(current_user) or current_user.id == row['usuario_id']):
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'error': 'Sin permisos'}), 403
+
+        cur.execute("DELETE FROM foro_respuestas WHERE id=%s", (respuesta_id,))
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ---------- Cerrar / reabrir tema (admin) ----------
+@app.route('/admin/foro/tema/<int:tema_id>/cerrar', methods=['POST'])
+@login_required
+@admin_required
+def foro_cerrar_tema(tema_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT estado FROM foro_temas WHERE id=%s", (tema_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.close(); conn.close()
+            return jsonify({'success': False}), 404
+        nuevo = 'activo' if row['estado'] == 'cerrado' else 'cerrado'
+        cur.execute("UPDATE foro_temas SET estado=%s WHERE id=%s", (nuevo, tema_id))
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'estado': nuevo})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ---------- Ocultar tema (admin) ----------
+@app.route('/admin/foro/tema/<int:tema_id>/ocultar', methods=['POST'])
+@login_required
+@admin_required
+def foro_ocultar_tema(tema_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT estado FROM foro_temas WHERE id=%s", (tema_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.close(); conn.close()
+            return jsonify({'success': False}), 404
+        nuevo = 'activo' if row['estado'] == 'oculto' else 'oculto'
+        cur.execute("UPDATE foro_temas SET estado=%s WHERE id=%s", (nuevo, tema_id))
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'estado': nuevo})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ---------- Reportar ----------
+@app.route('/foro/reportar', methods=['POST'])
+@login_required
+def foro_reportar():
+    data = request.get_json(silent=True) or request.form
+    tema_id = data.get('tema_id')
+    respuesta_id = data.get('respuesta_id')
+    motivo = data.get('motivo', '').strip()
+    detalle = (data.get('detalle') or '').strip()[:500]
+
+    motivos_validos = {'spam', 'insultos', 'falso', 'acoso', 'inapropiado', 'otro'}
+    if motivo not in motivos_validos:
+        return jsonify({'success': False, 'error': 'Motivo inválido'}), 400
+    if not tema_id and not respuesta_id:
+        return jsonify({'success': False, 'error': 'Falta tema o respuesta'}), 400
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Evitar reportes duplicados del mismo usuario al mismo objeto
+        if tema_id:
+            cur.execute("""SELECT id FROM foro_reportes
+                           WHERE reportado_por=%s AND tema_id=%s AND estado='pendiente'""",
+                        (current_user.id, tema_id))
         else:
-            cur.execute("SELECT id FROM foro_respuestas WHERE id = %s AND activo = 1", (id_item,))
-        if not cur.fetchone():
-            return jsonify({'error': 'Elemento no encontrado'}), 404
+            cur.execute("""SELECT id FROM foro_reportes
+                           WHERE reportado_por=%s AND respuesta_id=%s AND estado='pendiente'""",
+                        (current_user.id, respuesta_id))
+        if cur.fetchone():
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'error': 'Ya reportaste este contenido'}), 400
+
+        cur.execute("""
+            INSERT INTO foro_reportes (reportado_por, tema_id, respuesta_id, motivo, detalle)
+            VALUES (%s,%s,%s,%s,%s)
+        """, (current_user.id, tema_id, respuesta_id, motivo, detalle))
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ---------- Votar ----------
+@app.route('/foro/votar', methods=['POST'])
+@login_required
+def foro_votar():
+    data = request.get_json(silent=True) or {}
+    tipo = data.get('tipo')
+    id_item = data.get('id')
+    voto = data.get('voto')
+
+    if tipo not in ('tema', 'respuesta') or not id_item or voto not in ('up', 'down'):
+        return jsonify({'success': False, 'error': 'Datos inválidos'}), 400
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
         if tipo == 'tema':
-            cur.execute("SELECT id, tipo FROM foro_votos WHERE tema_id = %s AND usuario_id = %s", (id_item, current_user.id))
+            cur.execute("SELECT id FROM foro_temas WHERE id=%s", (id_item,))
+            if not cur.fetchone():
+                cur.close(); conn.close()
+                return jsonify({'success': False, 'error': 'No existe'}), 404
+            cur.execute("SELECT id, tipo FROM foro_votos WHERE tema_id=%s AND usuario_id=%s",
+                        (id_item, current_user.id))
         else:
-            cur.execute("SELECT id, tipo FROM foro_votos WHERE respuesta_id = %s AND usuario_id = %s", (id_item, current_user.id))
-        voto_existente = cur.fetchone()
-        if voto_existente:
-            if voto_existente['tipo'] == voto:
-                cur.execute("DELETE FROM foro_votos WHERE id = %s", (voto_existente['id'],))
-                conn.commit()
-                nuevo_total = contar_votos(tema_id=id_item if tipo == 'tema' else None, respuesta_id=id_item if tipo == 'respuesta' else None)
-                return jsonify({'success': True, 'total': nuevo_total, 'accion': 'eliminado'})
+            cur.execute("SELECT id FROM foro_respuestas WHERE id=%s", (id_item,))
+            if not cur.fetchone():
+                cur.close(); conn.close()
+                return jsonify({'success': False, 'error': 'No existe'}), 404
+            cur.execute("SELECT id, tipo FROM foro_votos WHERE respuesta_id=%s AND usuario_id=%s",
+                        (id_item, current_user.id))
+
+        existente = cur.fetchone()
+
+        if existente:
+            if existente['tipo'] == voto:
+                cur.execute("DELETE FROM foro_votos WHERE id=%s", (existente['id'],))
+                accion = 'eliminado'
             else:
-                cur.execute("UPDATE foro_votos SET tipo = %s WHERE id = %s", (voto, voto_existente['id']))
-                conn.commit()
-                nuevo_total = contar_votos(tema_id=id_item if tipo == 'tema' else None, respuesta_id=id_item if tipo == 'respuesta' else None)
-                return jsonify({'success': True, 'total': nuevo_total, 'accion': 'cambiado'})
+                cur.execute("UPDATE foro_votos SET tipo=%s WHERE id=%s", (voto, existente['id']))
+                accion = 'cambiado'
         else:
             if tipo == 'tema':
-                cur.execute("INSERT INTO foro_votos (tema_id, usuario_id, tipo) VALUES (%s, %s, %s)", (id_item, current_user.id, voto))
+                cur.execute("INSERT INTO foro_votos (tema_id, usuario_id, tipo) VALUES (%s,%s,%s)",
+                            (id_item, current_user.id, voto))
             else:
-                cur.execute("INSERT INTO foro_votos (respuesta_id, usuario_id, tipo) VALUES (%s, %s, %s)", (id_item, current_user.id, voto))
-            conn.commit()
-            nuevo_total = contar_votos(tema_id=id_item if tipo == 'tema' else None, respuesta_id=id_item if tipo == 'respuesta' else None)
-            return jsonify({'success': True, 'total': nuevo_total, 'accion': 'agregado'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+                cur.execute("INSERT INTO foro_votos (respuesta_id, usuario_id, tipo) VALUES (%s,%s,%s)",
+                            (id_item, current_user.id, voto))
+            accion = 'agregado'
 
+        conn.commit()
+        cur.close(); conn.close()
+
+        total = contar_votos(
+            tema_id=id_item if tipo == 'tema' else None,
+            respuesta_id=id_item if tipo == 'respuesta' else None
+        )
+        return jsonify({'success': True, 'total': total, 'accion': accion})
+
+    except Exception as e:
+        print(f"foro_votar: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ---------- Búsqueda AJAX (para autocompletado simple) ----------
+@app.route('/foro/buscar')
+def foro_buscar():
+    q = request.args.get('q', '', type=str).strip()
+    if len(q) < 2:
+        return jsonify({'resultados': []})
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT t.id, t.titulo, c.nombre AS categoria
+            FROM foro_temas t
+            JOIN foro_categorias c ON t.categoria_id = c.id
+            WHERE t.estado='activo' AND (t.titulo LIKE %s OR t.contenido LIKE %s)
+            ORDER BY t.created_at DESC
+            LIMIT 10
+        """, (f'%{q}%', f'%{q}%'))
+        resultados = cur.fetchall()
+        cur.close(); conn.close()
+        return jsonify({'resultados': resultados})
+    except Exception:
+        return jsonify({'resultados': []})
+
+
+# ---------- Notificaciones ----------
 @app.route('/foro/notificaciones')
 @login_required
 def foro_notificaciones():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM foro_notificaciones WHERE usuario_id = %s AND leido = 0 ORDER BY creado_en DESC", (current_user.id,))
+        cur.execute("""
+            SELECT * FROM foro_notificaciones
+            WHERE usuario_id=%s AND leido=0
+            ORDER BY created_at DESC LIMIT 20
+        """, (current_user.id,))
         notifs = cur.fetchall()
-        cur.close()
-        conn.close()
+        cur.close(); conn.close()
         return jsonify({'notificaciones': notifs})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/foro/notificaciones/count')
+@login_required
+def foro_notificaciones_count():
+    """Devuelve SOLO el número de notificaciones no leídas. Ligero para el badge."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COUNT(*) AS c FROM foro_notificaciones WHERE usuario_id=%s AND leido=0",
+            (current_user.id,)
+        )
+        n = cur.fetchone()['c']
+        cur.close(); conn.close()
+        return jsonify({'count': n})
+    except Exception as e:
+        # Devolvemos 200 con 0 para que el frontend nunca rompa
+        return jsonify({'count': 0}), 200
 
 @app.route('/foro/notificaciones/marcar_leidas', methods=['POST'])
 @login_required
@@ -3091,14 +3804,70 @@ def foro_marcar_leidas():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE foro_notificaciones SET leido = 1 WHERE usuario_id = %s AND leido = 0", (current_user.id,))
+        cur.execute("UPDATE foro_notificaciones SET leido=1 WHERE usuario_id=%s AND leido=0",
+                    (current_user.id,))
         conn.commit()
-        cur.close()
-        conn.close()
+        cur.close(); conn.close()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ---------- Admin: reportes ----------
+@app.route('/admin/foro/reportes')
+@login_required
+@admin_required
+def admin_foro_reportes():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT r.*,
+                   u.nombre AS reportador,
+                   t.titulo AS tema_titulo,
+                   t.id AS tema_id_real,
+                   rt.contenido AS respuesta_contenido
+            FROM foro_reportes r
+            JOIN usuarios u ON r.reportado_por = u.id
+            LEFT JOIN foro_temas t       ON r.tema_id = t.id
+            LEFT JOIN foro_respuestas rt ON r.respuesta_id = rt.id
+            WHERE r.estado = 'pendiente'
+            ORDER BY r.created_at ASC
+        """)
+        reportes = cur.fetchall()
+        cur.close(); conn.close()
+        return render_template('admin/foro_reportes.html', reportes=reportes)
+    except Exception as e:
+        print(f"admin_foro_reportes: {e}")
+        flash('Error al cargar reportes', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/foro/reporte/<int:reporte_id>/resolver', methods=['POST'])
+@login_required
+@admin_required
+def admin_foro_reporte_resolver(reporte_id):
+    data = request.get_json(silent=True) or {}
+    accion = data.get('accion')  # 'descartar' o 'sancionar'
+    if accion not in ('descartar', 'sancionar'):
+        return jsonify({'success': False, 'error': 'Acción inválida'}), 400
+    nuevo_estado = 'descartado' if accion == 'descartar' else 'sancionado'
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE foro_reportes
+            SET estado=%s, revisado_por=%s, revisado_en=NOW()
+            WHERE id=%s
+        """, (nuevo_estado, current_user.id, reporte_id))
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ---------- Admin: eliminar tema / respuesta ----------
 @app.route('/admin/foro/tema/<int:tema_id>/eliminar', methods=['POST'])
 @login_required
 @admin_required
@@ -3106,13 +3875,13 @@ def admin_foro_eliminar_tema(tema_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE foro_temas SET activo = 0 WHERE id = %s", (tema_id,))
+        cur.execute("DELETE FROM foro_temas WHERE id=%s", (tema_id,))
         conn.commit()
-        cur.close()
-        conn.close()
+        cur.close(); conn.close()
         return jsonify({'success': True})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/admin/foro/respuesta/<int:respuesta_id>/eliminar', methods=['POST'])
 @login_required
@@ -3121,48 +3890,110 @@ def admin_foro_eliminar_respuesta(respuesta_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE foro_respuestas SET activo = 0 WHERE id = %s", (respuesta_id,))
+        cur.execute("DELETE FROM foro_respuestas WHERE id=%s", (respuesta_id,))
         conn.commit()
-        cur.close()
-        conn.close()
+        cur.close(); conn.close()
         return jsonify({'success': True})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-def obtener_noticias_activas():
+
+# ---------- Admin: CRUD categorías ----------
+@app.route('/admin/foro/categorias')
+@login_required
+@admin_required
+def admin_foro_categorias():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT id, titulo FROM noticias WHERE activa = 1 ORDER BY fecha_publicacion DESC LIMIT 20")
-        noticias = cur.fetchall()
-        cur.close()
-        conn.close()
-        return noticias
-    except:
-        return []
+        cur.execute("SELECT * FROM foro_categorias ORDER BY orden")
+        cats = cur.fetchall()
+        cur.close(); conn.close()
+        return render_template('admin/foro_categorias.html', categorias=cats)
+    except Exception as e:
+        flash('Error al cargar categorías', 'danger')
+        return redirect(url_for('admin_dashboard'))
 
-# ======================== SUBIDA DE IMÁGENES PARA EL FORO ========================
 
+@app.route('/admin/foro/categoria/nueva', methods=['POST'])
+@login_required
+@admin_required
+def admin_foro_categoria_nueva():
+    nombre = request.form.get('nombre', '').strip()
+    descripcion = request.form.get('descripcion', '').strip()
+    icono = request.form.get('icono', 'comments').strip()
+    color = request.form.get('color', '#14B8A6').strip()
+    if not nombre:
+        flash('El nombre es obligatorio', 'danger')
+        return redirect(url_for('admin_foro_categorias'))
+    slug = re.sub(r'[^a-z0-9]+', '-', nombre.lower()).strip('-')
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO foro_categorias (nombre, slug, descripcion, icono, color, orden)
+            VALUES (%s, %s, %s, %s, %s, (SELECT COALESCE(MAX(orden),0)+1 FROM foro_categorias c))
+        """, (nombre, slug, descripcion, icono, color))
+        conn.commit()
+        cur.close(); conn.close()
+        flash('✅ Categoría creada', 'success')
+    except Exception as e:
+        flash(f'Error: {e}', 'danger')
+    return redirect(url_for('admin_foro_categorias'))
+
+
+@app.route('/admin/foro/categoria/<int:cat_id>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def admin_foro_categoria_eliminar(cat_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) AS c FROM foro_temas WHERE categoria_id=%s", (cat_id,))
+        if cur.fetchone()['c'] > 0:
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'error': 'Hay temas en esta categoría'}), 400
+        cur.execute("DELETE FROM foro_categorias WHERE id=%s", (cat_id,))
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ---------- Subir imagen foro ----------
 @app.route('/foro/subir_imagen', methods=['POST'])
 @login_required
 def foro_subir_imagen():
     if 'imagen' not in request.files:
-        return jsonify({'error': 'No se envió ninguna imagen'}), 400
+        return jsonify({'error': 'No se envió imagen'}), 400
     file = request.files['imagen']
     if file.filename == '':
-        return jsonify({'error': 'Nombre de archivo vacío'}), 400
+        return jsonify({'error': 'Archivo vacío'}), 400
     if not allowed_file(file.filename):
-        return jsonify({'error': 'Formato no permitido. Usa PNG, JPG, JPEG, GIF o WEBP'}), 400
+        return jsonify({'error': 'Formato no permitido'}), 400
     try:
         filename = secure_filename(file.filename)
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        nuevo_nombre = f"foro_{current_user.id}_{timestamp}_{filename}"
-        ruta_guardado = os.path.join(app.config['UPLOAD_FOLDER'], 'foro', nuevo_nombre)
-        file.save(ruta_guardado)
-        url = f'/uploads/foro/{nuevo_nombre}'
-        return jsonify({'success': True, 'url': url})
+        ext = filename.rsplit('.', 1)[1].lower()
+        nuevo = f"foro_{current_user.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.{ext}"
+        ruta = os.path.join(app.config['UPLOAD_FOLDER'], 'foro', nuevo)
+        file.save(ruta)
+        return jsonify({'success': True, 'url': f'/uploads/foro/{nuevo}'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ---------- Helper noticias ----------
+def obtener_noticias_activas():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, titulo FROM noticias WHERE activa=1 ORDER BY fecha_publicacion DESC LIMIT 20")
+        noticias = cur.fetchall()
+        cur.close(); conn.close()
+        return noticias
+    except Exception:
+        return []
 
 # ======================== ERRORES ========================
 

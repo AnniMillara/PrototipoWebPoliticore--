@@ -1,139 +1,281 @@
 {% extends "base.html" %}
-
 {% block title %}Foro - PolitiCore{% endblock %}
 
 {% block extra_css %}
 <style>
-    .tema-card {
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        border-radius: 12px;
-        margin-bottom: 12px;
-        padding: 16px 20px;
-        background: white;
-        border: 1px solid #e9ecef;
-    }
-    .tema-card:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-md);
-        border-color: var(--primary-turquoise);
-    }
-    .categoria-badge {
-        font-size: 0.65rem;
-        padding: 3px 10px;
-        border-radius: 50px;
-        background: #e9ecef;
-        color: #495057;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .categoria-badge.general { background: #e2e8f0; color: #2d3748; }
-    .categoria-badge.pregunta { background: #dbeafe; color: #1e40af; }
-    .categoria-badge.debate { background: #fef3c7; color: #92400e; }
-    .categoria-badge.noticia { background: #d1fae5; color: #065f46; }
-    .votos-badge {
-        min-width: 36px;
-        text-align: center;
-        background: #f1f5f9;
-        border-radius: 20px;
-        padding: 2px 10px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-    .pagination .page-link { color: var(--primary-turquoise); }
-    .pagination .active .page-link { background: var(--primary-turquoise); border-color: var(--primary-turquoise); color: white; }
-    .list-group-item-action { border: none; border-bottom: 1px solid #f0f0f0; }
-    .list-group-item-action:last-child { border-bottom: none; }
-    .avatar-mini {
-        width: 32px; height: 32px; border-radius: 50%; object-fit: cover; margin-right: 8px;
-    }
-    @media (max-width: 768px) {
-        .tema-card { padding: 12px 16px; }
-        .tema-card h5 { font-size: 1rem; }
-        .tema-card .text-muted small { font-size: 0.75rem; }
-        .votos-badge { font-size: 0.75rem; padding: 2px 8px; }
-        .btn-sm { font-size: 0.8rem; padding: 4px 10px; }
-        .categoria-badge { font-size: 0.55rem; padding: 2px 8px; }
-    }
-    @media (max-width: 576px) {
-        .tema-card .row > div { width: 100%; flex: 0 0 100%; max-width: 100%; }
-        .tema-card .row { flex-direction: column; }
-        .tema-card .text-md-end { text-align: left !important; margin-top: 8px; }
-        .tema-card .d-flex.justify-content-md-end { justify-content: flex-start !important; flex-wrap: wrap; gap: 6px; }
-    }
+  .foro-hero {
+    background: linear-gradient(135deg, #14B8A6 0%, #0F766E 100%);
+    border-radius: 20px;
+    color: #fff;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+  }
+  .foro-hero h1 { font-weight: 800; margin: 0; }
+  .foro-hero p  { margin: 0; opacity: .9; }
+  .foro-stats { display:flex; gap:1.5rem; margin-top:1rem; flex-wrap:wrap; }
+  .foro-stats .item { font-size:.9rem; opacity:.95; }
+  .foro-stats .item strong { font-size:1.2rem; display:block; }
+
+  .cat-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 50px; font-size: .8rem;
+    background: #F1F5F9; color: #334155; text-decoration: none;
+    border: 1px solid transparent; transition: .15s;
+  }
+  .cat-pill:hover { border-color: #14B8A6; color: #0F766E; }
+  .cat-pill.active { background: #14B8A6; color: #fff; }
+
+  .tema-card {
+    background: #fff; border-radius: 14px; padding: 1.1rem 1.3rem;
+    border: 1px solid #E5E7EB; transition: .15s; display:block;
+    text-decoration: none; color: inherit; margin-bottom: .75rem;
+  }
+  .tema-card:hover {
+    border-color: #14B8A6;
+    box-shadow: 0 6px 20px rgba(20,184,166,.08);
+    transform: translateY(-2px);
+  }
+  .tema-card h5 { font-weight: 700; margin: 0 0 .25rem 0; color: #0F172A; }
+  .tema-card .meta { font-size:.8rem; color:#64748B; display:flex; gap:.75rem; flex-wrap:wrap; align-items:center; }
+  .tema-card .badge-cat {
+    font-size:.7rem; padding:3px 10px; border-radius:50px; font-weight:600;
+  }
+  .tema-card .resumen { color:#475569; font-size:.9rem; margin:.5rem 0; }
+  .tema-card .metric { font-size:.85rem; color:#334155; }
+  .tema-card .metric i { color:#14B8A6; }
+
+  .avatar-mini {
+    width: 28px; height: 28px; border-radius: 50%; object-fit: cover;
+    background:#E2E8F0; display:inline-flex; align-items:center; justify-content:center;
+    color:#64748B; font-size:.75rem; font-weight:600;
+  }
+  .sidebar-card {
+    background:#fff; border-radius:14px; border:1px solid #E5E7EB;
+    padding:1rem; margin-bottom:1rem;
+  }
+  .sidebar-card h6 { font-weight:700; margin-bottom:.75rem; }
+  .vacio {
+    text-align:center; padding:3rem 1rem; color:#64748B;
+  }
+  .vacio i { font-size:3rem; color:#CBD5E1; display:block; margin-bottom:.5rem; }
+  @media (max-width: 768px) {
+    .foro-hero { padding:1.25rem; }
+    .tema-card { padding: .9rem; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-3 py-md-4">
-    <div class="d-flex justify-content-between align-items-center flex-wrap mb-4">
-        <div>
-            <h1 class="fw-bold"><i class="fas fa-comments text-primary me-2"></i> Foro de Discusión</h1>
-            <p class="text-muted">Comparte ideas, preguntas y debates sobre política y ciudadanía</p>
+<div class="container py-4">
+
+  <!-- HERO -->
+  <div class="foro-hero">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div>
+        <h1><i class="fas fa-comments me-2"></i>Foro de PolitiCore</h1>
+        <p>Debate, argumenta y aprende con otros ciudadanos.</p>
+        <div class="foro-stats">
+          <div class="item"><strong>{{ total_temas }}</strong>Temas</div>
+          <div class="item"><strong>{{ total_respuestas }}</strong>Respuestas</div>
+          <div class="item"><strong>{{ total_usuarios }}</strong>Usuarios</div>
         </div>
-        <a href="{{ url_for('foro_nuevo_tema') }}" class="btn btn-primary"><i class="fas fa-plus me-2"></i> Nuevo tema</a>
-    </div>
-
-    <div class="d-flex gap-2 mb-4 flex-wrap">
-        <a href="{{ url_for('foro_index') }}" class="btn btn-sm {% if categoria_actual == 'todas' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todas</a>
-        <a href="{{ url_for('foro_index', categoria='general') }}" class="btn btn-sm {% if categoria_actual == 'general' %}btn-primary{% else %}btn-outline-secondary{% endif %}">📌 General</a>
-        <a href="{{ url_for('foro_index', categoria='pregunta') }}" class="btn btn-sm {% if categoria_actual == 'pregunta' %}btn-primary{% else %}btn-outline-secondary{% endif %}">❓ Preguntas</a>
-        <a href="{{ url_for('foro_index', categoria='debate') }}" class="btn btn-sm {% if categoria_actual == 'debate' %}btn-primary{% else %}btn-outline-secondary{% endif %}">🗣️ Debate</a>
-        <a href="{{ url_for('foro_index', categoria='noticia') }}" class="btn btn-sm {% if categoria_actual == 'noticia' %}btn-primary{% else %}btn-outline-secondary{% endif %}">📰 Noticias</a>
-    </div>
-
-    {% if temas %}
-    <div class="list-group">
-        {% for tema in temas %}
-        <a href="{{ url_for('foro_ver_tema', tema_id=tema.id) }}" class="list-group-item list-group-item-action tema-card">
-            <div class="row g-2 align-items-center">
-                <div class="col-12 col-md-8">
-                    <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <h5 class="mb-0">{{ tema.titulo }}</h5>
-                        <span class="categoria-badge {{ tema.categoria }}">{{ tema.categoria }}</span>
-                    </div>
-                    <div class="text-muted small mt-1">
-                        <img src="{{ tema.autor_foto or url_for('static', filename='img/default-avatar.png') }}" class="avatar-mini" onerror="this.style.display='none'">
-                        <i class="fas fa-user me-1"></i> {{ tema.autor_nombre }}
-                        <i class="fas fa-calendar ms-2 me-1"></i> {{ tema.creado_en.strftime('%d/%m/%Y %H:%M') }}
-                    </div>
-                    <p class="text-muted small mt-1 mb-0">{{ tema.contenido[:150] }}{% if tema.contenido|length > 150 %}…{% endif %}</p>
-                </div>
-                <div class="col-12 col-md-4 text-md-end">
-                    <div class="d-flex justify-content-md-end gap-2 flex-wrap">
-                        <span class="votos-badge"><i class="fas fa-arrow-up text-success me-1"></i> <span id="votos-{{ tema.id }}">{{ tema.votos or 0 }}</span></span>
-                        <span class="badge bg-secondary rounded-pill"><i class="fas fa-reply me-1"></i> {{ tema.total_respuestas or 0 }}</span>
-                        <span class="badge bg-light text-dark"><i class="fas fa-eye me-1"></i> {{ tema.vistas or 0 }}</span>
-                    </div>
-                </div>
-            </div>
+      </div>
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('foro_nuevo_tema') }}" class="btn btn-light fw-bold">
+          <i class="fas fa-plus me-1"></i> Crear discusión
         </a>
+      {% else %}
+        <a href="{{ url_for('login') }}" class="btn btn-light fw-bold">
+          <i class="fas fa-sign-in-alt me-1"></i> Inicia sesión para participar
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- COLUMNA PRINCIPAL -->
+    <div class="col-lg-8">
+
+      <!-- BUSCADOR -->
+      <form method="get" action="{{ url_for('foro_index') }}" class="mb-3">
+        <div class="input-group">
+          <span class="input-group-text bg-white border-end-0">
+            <i class="fas fa-search text-muted"></i>
+          </span>
+          <input type="text" class="form-control border-start-0"
+                 name="q" value="{{ buscar }}" placeholder="Buscar discusiones...">
+          {% if categoria_actual %}
+            <input type="hidden" name="categoria" value="{{ categoria_actual }}">
+          {% endif %}
+          <button class="btn btn-primary" type="submit" style="background:#14B8A6;border-color:#14B8A6;">
+            Buscar
+          </button>
+        </div>
+      </form>
+
+      <!-- FILTROS -->
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div class="d-flex gap-1 flex-wrap">
+          <a class="cat-pill {% if not categoria_actual %}active{% endif %}"
+             href="{{ url_for('foro_index', q=buscar, orden=orden) }}">
+            Todas
+          </a>
+          {% for c in categorias %}
+            <a class="cat-pill {% if categoria_actual == c.slug %}active{% endif %}"
+               href="{{ url_for('foro_index', categoria=c.slug, q=buscar, orden=orden) }}">
+              <i class="fas fa-{{ c.icono }}"></i>{{ c.nombre }}
+            </a>
+          {% endfor %}
+        </div>
+        <form method="get" action="{{ url_for('foro_index') }}">
+          {% if categoria_actual %}<input type="hidden" name="categoria" value="{{ categoria_actual }}">{% endif %}
+          {% if buscar %}<input type="hidden" name="q" value="{{ buscar }}">{% endif %}
+          <select name="orden" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="recientes"  {% if orden=='recientes'  %}selected{% endif %}>Más recientes</option>
+            <option value="actividad"  {% if orden=='actividad'  %}selected{% endif %}>Última actividad</option>
+            <option value="comentados" {% if orden=='comentados' %}selected{% endif %}>Más comentados</option>
+            <option value="vistos"     {% if orden=='vistos'     %}selected{% endif %}>Más vistos</option>
+          </select>
+        </form>
+      </div>
+
+      <!-- LISTA DE TEMAS -->
+      {% if temas %}
+        {% for tema in temas %}
+          <a class="tema-card" href="{{ url_for('foro_ver_tema', tema_id=tema.id) }}">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div class="flex-grow-1">
+                <span class="badge-cat" style="background:{{ tema.categoria_color }}20;color:{{ tema.categoria_color }};">
+                  <i class="fas fa-{{ tema.categoria_icono }} me-1"></i>{{ tema.categoria_nombre }}
+                </span>
+                {% if tema.fijado %}
+                  <span class="badge-cat bg-warning text-dark ms-1">
+                    <i class="fas fa-thumbtack me-1"></i>Fijado
+                  </span>
+                {% endif %}
+                {% if tema.estado == 'cerrado' %}
+                  <span class="badge-cat bg-secondary text-white ms-1">
+                    <i class="fas fa-lock me-1"></i>Cerrado
+                  </span>
+                {% endif %}
+                <h5 class="mt-2">{{ tema.titulo }}</h5>
+                <div class="meta">
+                  {% if tema.autor_foto %}
+                    <img src="{{ url_for('static', filename=tema.autor_foto) }}" class="avatar-mini" alt="">
+                  {% else %}
+                    <span class="avatar-mini">{{ (tema.autor_nombre or '?')[0]|upper }}</span>
+                  {% endif %}
+                  <span>{{ tema.autor_nombre }}</span>
+                  <span>·</span>
+                  <span>{{ tema.created_at.strftime('%d/%m/%Y') }}</span>
+                </div>
+                <p class="resumen">{{ tema.contenido[:160] }}{% if tema.contenido|length > 160 %}…{% endif %}</p>
+              </div>
+              <div class="text-end small text-muted" style="min-width:100px;">
+                <div class="metric mb-1"><i class="fas fa-comment"></i> {{ tema.total_respuestas }}</div>
+                <div class="metric mb-1"><i class="fas fa-arrow-up"></i> {{ tema.votos }}</div>
+                <div class="metric"><i class="fas fa-eye"></i> {{ tema.vistas }}</div>
+              </div>
+            </div>
+          </a>
         {% endfor %}
+
+        <!-- PAGINACIÓN -->
+        {% if total_paginas > 1 %}
+          <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+              {% if page > 1 %}
+                <li class="page-item">
+                  <a class="page-link"
+                     href="{{ url_for('foro_index', page=page-1, categoria=categoria_actual, q=buscar, orden=orden) }}">
+                     Anterior
+                  </a>
+                </li>
+              {% endif %}
+              {% for p in range(1, total_paginas + 1) %}
+                {% if p == page or (p <= 2) or (p >= total_paginas - 1) or (p >= page - 1 and p <= page + 1) %}
+                  <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link"
+                       href="{{ url_for('foro_index', page=p, categoria=categoria_actual, q=buscar, orden=orden) }}">
+                       {{ p }}
+                    </a>
+                  </li>
+                {% elif p == 3 or p == total_paginas - 2 %}
+                  <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+              {% endfor %}
+              {% if page < total_paginas %}
+                <li class="page-item">
+                  <a class="page-link"
+                     href="{{ url_for('foro_index', page=page+1, categoria=categoria_actual, q=buscar, orden=orden) }}">
+                     Siguiente
+                  </a>
+                </li>
+              {% endif %}
+            </ul>
+          </nav>
+        {% endif %}
+      {% else %}
+        <div class="vacio">
+          <i class="fas fa-comments"></i>
+          <h5>No hay discusiones{% if buscar %} que coincidan con "{{ buscar }}"{% endif %}</h5>
+          <p>{% if current_user.is_authenticated %}¡Sé el primero en crear un tema!{% else %}Inicia sesión para crear el primer tema.{% endif %}</p>
+          {% if current_user.is_authenticated %}
+            <a href="{{ url_for('foro_nuevo_tema') }}" class="btn btn-primary" style="background:#14B8A6;border-color:#14B8A6;">
+              Crear discusión
+            </a>
+          {% endif %}
+        </div>
+      {% endif %}
     </div>
 
-    {% if total_paginas > 1 %}
-    <nav aria-label="Paginación del foro" class="mt-4">
-        <ul class="pagination justify-content-center">
-            {% if page > 1 %}
-            <li class="page-item"><a class="page-link" href="{{ url_for('foro_index', page=page-1, categoria=categoria_actual) }}">Anterior</a></li>
-            {% endif %}
-            {% for p in range(1, total_paginas + 1) %}
-            <li class="page-item {% if p == page %}active{% endif %}"><a class="page-link" href="{{ url_for('foro_index', page=p, categoria=categoria_actual) }}">{{ p }}</a></li>
-            {% endfor %}
-            {% if page < total_paginas %}
-            <li class="page-item"><a class="page-link" href="{{ url_for('foro_index', page=page+1, categoria=categoria_actual) }}">Siguiente</a></li>
-            {% endif %}
+    <!-- SIDEBAR -->
+    <div class="col-lg-4">
+      {% if current_user.is_authenticated %}
+        <div class="sidebar-card">
+          <h6><i class="fas fa-bolt text-warning me-1"></i>Acciones rápidas</h6>
+          <a href="{{ url_for('foro_nuevo_tema') }}" class="btn btn-primary w-100 mb-2" style="background:#14B8A6;border-color:#14B8A6;">
+            <i class="fas fa-plus me-1"></i> Crear discusión
+          </a>
+          <button class="btn btn-outline-secondary w-100" onclick="verNotificaciones()">
+            <i class="fas fa-bell me-1"></i> Notificaciones
+            {% if no_leidas > 0 %}<span class="badge bg-danger ms-1">{{ no_leidas }}</span>{% endif %}
+          </button>
+        </div>
+      {% endif %}
+
+      <div class="sidebar-card">
+        <h6><i class="fas fa-shield-alt text-primary me-1"></i>Normas de la comunidad</h6>
+        <ul class="small mb-0 ps-3">
+          <li>Argumenta tus ideas con respeto.</li>
+          <li>No publiques datos personales.</li>
+          <li>Revisa las fuentes antes de compartir.</li>
+          <li>Reporta contenido inapropiado.</li>
         </ul>
-    </nav>
-    {% endif %}
+      </div>
 
-    {% else %}
-    <div class="text-center py-5">
-        <i class="fas fa-comments text-muted" style="font-size: 4rem;"></i>
-        <h4 class="mt-3">No hay temas en esta categoría</h4>
-        <p class="text-muted">¡Sé el primero en crear un tema de discusión!</p>
-        <a href="{{ url_for('foro_nuevo_tema') }}" class="btn btn-primary"><i class="fas fa-plus me-2"></i> Crear tema</a>
+      <div class="sidebar-card">
+        <h6><i class="fas fa-lightbulb text-warning me-1"></i>Consejo</h6>
+        <p class="small mb-0 text-muted">
+          Recuerda argumentar tus ideas y respetar a quienes piensan diferente.
+          Un buen debate fortalece la democracia.
+        </p>
+      </div>
     </div>
-    {% endif %}
+  </div>
 </div>
+
+<script>
+function verNotificaciones() {
+  fetch('{{ url_for("foro_notificaciones") }}')
+    .then(r => r.json())
+    .then(data => {
+      const ns = data.notificaciones || [];
+      if (!ns.length) { alert('No tienes notificaciones nuevas'); return; }
+      alert(ns.map(n => `• ${n.mensaje}`).join('\n'));
+      fetch('{{ url_for("foro_marcar_leidas") }}', {method:'POST'})
+        .then(() => location.reload());
+    });
+}
+</script>
 {% endblock %}

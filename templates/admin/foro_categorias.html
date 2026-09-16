@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Categorías del Foro - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold"><i class="fas fa-tags text-primary me-2"></i>Categorías del Foro</h1>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">Volver</a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-7">
+            <div class="card-modern">
+                <h5 class="fw-bold mb-3">Existentes</h5>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nombre</th>
+                            <th>Slug</th>
+                            <th>Color</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in categorias %}
+                        <tr>
+                            <td><i class="fas fa-{{ c.icono }}" style="color:{{ c.color }};"></i></td>
+                            <td>{{ c.nombre }}</td>
+                            <td><code>{{ c.slug }}</code></td>
+                            <td><span
+                                    style="display:inline-block;width:20px;height:20px;border-radius:50%;background:{{ c.color }};"></span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger" onclick="eliminar({{ c.id }})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card-modern">
+                <h5 class="fw-bold mb-3">Nueva categoría</h5>
+                <form method="POST" action="{{ url_for('admin_foro_categoria_nueva') }}">
+                    <div class="mb-2">
+                        <label class="form-label small">Nombre</label>
+                        <input type="text" name="nombre" class="form-control" required maxlength="60">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Descripción</label>
+                        <input type="text" name="descripcion" class="form-control" maxlength="255">
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label small">Icono (FA)</label>
+                            <input type="text" name="icono" class="form-control" value="comments">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Color</label>
+                            <input type="color" name="color" class="form-control form-control-color" value="#14B8A6">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-100 mt-3" style="background:#14B8A6;border-color:#14B8A6;">
+                        Crear
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function eliminar(id) {
+        if (!confirm('¿Eliminar categoría?')) return;
+        fetch('/admin/foro/categoria/' + id + '/eliminar', { method: 'POST' })
+            .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+                else alert(d.error);
+            });
+    }
+</script>
+{% endblock %}

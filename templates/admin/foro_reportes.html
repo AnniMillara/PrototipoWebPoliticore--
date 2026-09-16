@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Reportes del Foro - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold"><i class="fas fa-flag text-warning me-2"></i>Reportes del Foro</h1>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Dashboard
+        </a>
+    </div>
+
+    {% if reportes %}
+    <div class="card-modern">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Reportado por</th>
+                        <th>Tipo</th>
+                        <th>Motivo</th>
+                        <th>Detalle</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in reportes %}
+                    <tr id="rep-{{ r.id }}">
+                        <td>{{ r.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>{{ r.reportador }}</td>
+                        <td>
+                            {% if r.tema_id %}
+                            Tema: <a href="{{ url_for('foro_ver_tema', tema_id=r.tema_id_real) }}" target="_blank">
+                                {{ r.tema_titulo }}
+                            </a>
+                            {% else %}
+                            Respuesta
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-warning text-dark">{{ r.motivo }}</span></td>
+                        <td><small class="text-muted">{{ r.detalle or '—' }}</small></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-secondary"
+                                onclick="resolver({{ r.id }}, 'descartar')">
+                                Descartar
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="resolver({{ r.id }}, 'sancionar')">
+                                Sancionar
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-check-circle me-1"></i>No hay reportes pendientes.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    function resolver(id, accion) {
+        fetch('/admin/foro/reporte/' + id + '/resolver', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accion })
+        }).then(r => r.json()).then(d => {
+            if (d.success) document.getElementById('rep-' + id).remove();
+            else alert(d.error);
+        });
+    }
+</script>
+{% endblock %}

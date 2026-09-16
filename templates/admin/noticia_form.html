@@ -2,78 +2,252 @@
 
 {% block title %}{{ 'Editar' if noticia else 'Nueva' }} Noticia - PolitiCore{% endblock %}
 
+{% block extra_css %}
+<style>
+    .bloque {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1.25rem 1.35rem;
+        margin-bottom: 1rem;
+        border: 1px solid #E5E7EB;
+    }
+
+    .bloque-titulo {
+        font-weight: 700;
+        font-size: .95rem;
+        color: #0F172A;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        margin-bottom: .35rem;
+    }
+
+    .bloque-titulo i {
+        color: var(--primary-orange);
+    }
+
+    .bloque-desc {
+        font-size: .8rem;
+        color: #6B7280;
+        margin-bottom: .85rem;
+    }
+
+    .ejemplo {
+        font-size: .78rem;
+        color: #94A3B8;
+        font-style: italic;
+        margin-top: 4px;
+    }
+
+    .img-preview {
+        max-height: 200px;
+        border-radius: 10px;
+        border: 1px solid #E5E7EB;
+        object-fit: cover;
+        display: block;
+        margin-bottom: .75rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container py-4">
     <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card-modern">
-                <h4 class="fw-bold mb-4">
+        <div class="col-lg-9">
+
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <h4 class="fw-bold mb-0">
                     <i class="fas fa-{{ 'edit' if noticia else 'plus' }} text-primary me-2"></i>
                     {{ 'Editar' if noticia else 'Nueva' }} Noticia
                 </h4>
-
-                <form method="POST">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Título</label>
-                        <input type="text" class="form-control" name="titulo"
-                            value="{{ noticia.titulo if noticia else '' }}" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Descripción</label>
-                        <textarea class="form-control" name="descripcion" rows="3"
-                            required>{{ noticia.descripcion if noticia else '' }}</textarea>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold">Fecha</label>
-                                <input type="date" class="form-control" name="fecha"
-                                    value="{{ noticia.fecha if noticia else '' }}" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold">Icono (Font Awesome)</label>
-                                <input type="text" class="form-control" name="icono"
-                                    value="{{ noticia.icono if noticia else 'circle' }}"
-                                    placeholder="Ej: star, vote-yea, gavel">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="activa" {% if not noticia or
-                                        noticia.activa %}checked{% endif %}>
-                                    <label class="form-check-label">Activa</label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="destacada" {% if noticia and
-                                        noticia.destacada %}checked{% endif %}>
-                                    <label class="form-check-label">Destacada</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-2"></i> Guardar
-                        </button>
-                        <a href="{{ url_for('admin_noticias') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-arrow-left me-2"></i> Volver
-                        </a>
-                    </div>
-                </form>
+                {% if noticia %}
+                <a href="{{ url_for('noticia_detalle', id=noticia.id) }}" target="_blank"
+                    class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-eye me-1"></i> Ver cómo se ve
+                </a>
+                {% endif %}
             </div>
+
+            <form method="POST" enctype="multipart/form-data">
+
+                <!-- ════════════ IDENTIFICACIÓN ════════════ -->
+                <div class="bloque">
+                    <div class="bloque-titulo"><i class="fas fa-tag"></i> Identificación</div>
+                    <div class="bloque-desc">Título, categoría y fecha. Aparecen arriba en el detalle.</div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Título <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="titulo"
+                            value="{{ noticia.titulo if noticia else '' }}" required maxlength="200"
+                            placeholder="Ej: Senado aprueba reforma al sistema de pensiones">
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Fecha <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="fecha"
+                                value="{{ noticia.fecha if noticia else '' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Categoría</label>
+                            <input type="text" class="form-control" name="categoria"
+                                value="{{ noticia.categoria if noticia else '' }}" placeholder="Economía, Política..."
+                                maxlength="50">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Ícono (Font Awesome)</label>
+                            <input type="text" class="form-control" name="icono"
+                                value="{{ noticia.icono if noticia else 'newspaper' }}"
+                                placeholder="newspaper, landmark, vote-yea">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ════════════ RESUMEN CORTO ════════════ -->
+                <div class="bloque">
+                    <div class="bloque-titulo"><i class="fas fa-quote-left"></i> Resumen corto (bajada)</div>
+                    <div class="bloque-desc">
+                        Es el texto corto que aparece en la <strong>tarjeta del inicio</strong> y bajo el título del
+                        detalle.
+                        Debe ser de 1 a 3 oraciones. <strong>NO es el contenido completo.</strong>
+                    </div>
+
+                    <textarea class="form-control" name="descripcion" rows="2" required maxlength="500"
+                        placeholder="Ej: La cámara alta aprobó por 28 votos a favor y 12 en contra la reforma que cambia el sistema de pensiones.">{{ noticia.descripcion if noticia else '' }}</textarea>
+                    <div class="ejemplo">Aparece con una línea vertical naranja en el detalle público.</div>
+                </div>
+
+                <!-- ════════════ CONTENIDO COMPLETO ════════════ -->
+                <div class="bloque">
+                    <div class="bloque-titulo"><i class="fas fa-file-lines"></i> Contenido de la noticia</div>
+                    <div class="bloque-desc">
+                        Aquí va la <strong>explicación completa</strong>. Es lo que verá el usuario al entrar al
+                        detalle.
+                        Puedes escribir varios párrafos.
+                    </div>
+
+                    <textarea class="form-control" name="contenido" rows="10"
+                        placeholder="Explica con detalle:&#10;&#10;- ¿Qué pasó?&#10;- ¿Quiénes participaron?&#10;- ¿Qué se decidió?&#10;- ¿Qué sigue ahora?&#10;&#10;Puedes usar **negrita**, *cursiva*, [enlaces](https://url) e imágenes con ![texto](https://url-imagen.com/foto.jpg)">{{ noticia.contenido if noticia else '' }}</textarea>
+                    <div class="ejemplo">
+                        Acepta **negrita**, *cursiva*, [enlaces](https://...) e imágenes con ![texto](https://...).
+                    </div>
+                </div>
+
+                <!-- ════════════ SECCIONES EDUCATIVAS ════════════ -->
+                <div class="bloque">
+                    <div class="bloque-titulo"><i class="fas fa-graduation-cap"></i> Secciones educativas</div>
+                    <div class="bloque-desc">
+                        Son opcionales. Si las llenas, aparecen como bloques de color en el detalle. Si las dejas
+                        vacías, no se muestran.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-star text-warning me-1"></i> ¿Por qué es importante?
+                        </label>
+                        <textarea class="form-control" name="por_que_importa" rows="3"
+                            placeholder="Explica el impacto real de esta noticia para el país, la democracia o el futuro.">{{ noticia.por_que_importa if noticia else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-user-check text-success me-1"></i> ¿Cómo te afecta?
+                        </label>
+                        <textarea class="form-control" name="como_te_afecta" rows="3"
+                            placeholder="Explica en qué cambia la vida cotidiana de las personas (precios, acceso, derechos, etc.).">{{ noticia.como_te_afecta if noticia else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-book-open text-primary me-1"></i> Contexto
+                        </label>
+                        <textarea class="form-control" name="contexto" rows="3"
+                            placeholder="Antecedentes históricos, definiciones, datos previos para entender mejor la noticia.">{{ noticia.contexto if noticia else '' }}</textarea>
+                    </div>
+                </div>
+
+                <!-- ════════════ IMAGEN ════════════ -->
+                <div class="bloque">
+                    <div class="bloque-titulo"><i class="fas fa-image"></i> Imagen principal</div>
+                    <div class="bloque-desc">Se muestra grande arriba en el detalle y en la tarjeta del inicio.</div>
+
+                    {% if noticia and noticia.imagen %}
+                    <div class="mb-3">
+                        {% if noticia.imagen.startswith('http') %}
+                        <img src="{{ noticia.imagen }}" class="img-preview" alt="Imagen actual">
+                        {% else %}
+                        <img src="{{ url_for('static', filename=noticia.imagen) }}" class="img-preview"
+                            alt="Imagen actual">
+                        {% endif %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="quitar_imagen" id="chk-quitar">
+                            <label class="form-check-label small text-danger" for="chk-quitar">Eliminar esta
+                                imagen</label>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-muted small mb-3"><i class="fas fa-info-circle me-1"></i> Sin imagen actual</div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Subir nueva imagen</label>
+                        <input type="file" class="form-control" name="imagen_archivo"
+                            accept=".jpg,.jpeg,.png,.gif,.webp">
+                        <div class="ejemplo">Formatos: JPG, PNG, GIF, WEBP. Máx 5MB.</div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label fw-semibold">…o pegar URL externa</label>
+                        <input type="text" class="form-control" name="imagen_url"
+                            placeholder="https://ejemplo.com/foto.jpg">
+                        <div class="ejemplo">Se usa solo si no subes archivo.</div>
+                    </div>
+                </div>
+
+                <!-- ════════════ FUENTE ════════════ -->
+                <div class="bloque">
+                    <div class="bloque-titulo"><i class="fas fa-link"></i> Fuente original</div>
+                    <div class="bloque-desc">Enlace a la noticia original (opcional). Aparece como un cuadro al final
+                        del detalle.</div>
+                    <input type="text" class="form-control" name="url" value="{{ noticia.url if noticia else '' }}"
+                        placeholder="https://medios-oficiales.cl/noticia-original">
+                </div>
+
+                <!-- ════════════ ESTADO ════════════ -->
+                <div class="bloque">
+                    <div class="bloque-titulo"><i class="fas fa-toggle-on"></i> Estado</div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="activa" id="chk-activa" {% if not
+                                    noticia or noticia.activa %}checked{% endif %}>
+                                <label class="form-check-label" for="chk-activa">
+                                    <strong>Activa</strong> — visible públicamente
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="destacada" id="chk-dest" {% if
+                                    noticia and noticia.destacada %}checked{% endif %}>
+                                <label class="form-check-label" for="chk-dest">
+                                    <strong>Destacada</strong> — prioridad en inicio
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOTONES -->
+                <div class="d-flex gap-2 flex-wrap mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i> Guardar
+                    </button>
+                    <a href="{{ url_for('admin_noticias') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i> Volver
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
 </div>

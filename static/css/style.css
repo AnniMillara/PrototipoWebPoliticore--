@@ -1005,7 +1005,7 @@ a:hover {
 /* Asegura que el contenido principal empuje el footer */
 .content-wrapper {
     flex: 1 0 auto;
-    min-height: 70vh;
+    min-height: 0;
     width: 100%;
 }
 

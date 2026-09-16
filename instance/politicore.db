@@ -1,6 +1,7 @@
 -- =============================================
 -- BASE DE DATOS COMPLETA PARA POLITICORE 2026
 -- VERSIÓN FINAL - CON SISTEMA DE CARTAS CONTEXTUALES
+-- Y FORO COMPLETO (CATEGORÍAS + REPORTES)
 -- =============================================
 
 -- 1. CREAR BASE DE DATOS
@@ -385,18 +386,17 @@ CREATE TABLE establecimientos (
 -- 10. TABLAS DE TAREAS Y DESCARGAS
 -- =============================================
 
--- 10.1 Tareas
 CREATE TABLE tareas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     titulo VARCHAR(200) NOT NULL,
     descripcion TEXT NOT NULL,
     archivo_url VARCHAR(500),
+    archivo_nombre VARCHAR(255) NULL,
     creado_por INT,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
 );
 
--- 10.2 Entregas de tareas
 CREATE TABLE entregas_tareas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     tarea_id INT NOT NULL,
@@ -414,7 +414,6 @@ CREATE TABLE entregas_tareas (
     INDEX idx_entregas_tarea (tarea_id)
 );
 
--- 10.3 Descargas
 CREATE TABLE descargas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     titulo VARCHAR(200) NOT NULL,
@@ -469,10 +468,9 @@ CREATE TABLE sala_progreso (
 );
 
 -- =============================================
--- 12. TABLAS DE CARTAS DE EVENTO Y RUTAS (CON CAMPOS CONTEXTUALES)
+-- 12. TABLAS DE CARTAS DE EVENTO Y RUTAS
 -- =============================================
 
--- 12.1 Cartas de Evento (con campos para contexto por simulación)
 CREATE TABLE cartas_evento (
     id INT AUTO_INCREMENT PRIMARY KEY,
     titulo VARCHAR(200) NOT NULL,
@@ -485,7 +483,6 @@ CREATE TABLE cartas_evento (
     activa BOOLEAN DEFAULT TRUE,
     creado_por INT,
     creada_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    -- 👇 CAMPOS PARA CONTEXTUALIZAR LAS CARTAS
     campana_id INT NULL COMMENT 'ID de la simulación específica. NULL = aparece en todas',
     escenas_validas JSON NULL COMMENT 'Array de escenas donde puede aparecer. NULL = todas',
     contexto VARCHAR(50) DEFAULT 'general' COMMENT 'Contexto de la carta',
@@ -495,7 +492,6 @@ CREATE TABLE cartas_evento (
     INDEX idx_cartas_campana (campana_id)
 );
 
--- 12.2 Rutas Alternativas
 CREATE TABLE rutas_alternativas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     carta_id INT NOT NULL,
@@ -515,7 +511,7 @@ CREATE TABLE rutas_alternativas (
 -- =============================================
 
 CREATE VIEW v_usuarios_completos AS
-SELECT 
+SELECT
     u.id,
     u.nombre,
     u.apellido_paterno,
@@ -523,7 +519,7 @@ SELECT
     u.nivel,
     u.xp,
     u.activo,
-    tu.nombre as tipo_usuario,
+    tu.nombre AS tipo_usuario,
     tu.nivel_acceso,
     pe.establecimiento,
     pe.curso,
@@ -538,15 +534,15 @@ LEFT JOIN perfiles_docente pd ON u.id = pd.usuario_id
 LEFT JOIN perfiles_admin pa ON u.id = pa.usuario_id;
 
 CREATE VIEW v_progreso_usuarios AS
-SELECT 
-    u.id as usuario_id,
+SELECT
+    u.id AS usuario_id,
     u.nombre,
     u.apellido_paterno,
     u.nivel,
     u.xp,
-    COUNT(DISTINCT pl.leccion_id) as lecciones_completadas,
-    COUNT(DISTINCT io.insignia_id) as insignias_obtenidas,
-    SUM(pl.puntaje) as puntaje_total
+    COUNT(DISTINCT pl.leccion_id) AS lecciones_completadas,
+    COUNT(DISTINCT io.insignia_id) AS insignias_obtenidas,
+    SUM(pl.puntaje) AS puntaje_total
 FROM usuarios u
 LEFT JOIN progreso_lecciones pl ON u.id = pl.usuario_id AND pl.completada = TRUE
 LEFT JOIN insignias_obtenidas io ON u.id = io.usuario_id
@@ -556,7 +552,6 @@ GROUP BY u.id, u.nombre, u.apellido_paterno, u.nivel, u.xp;
 -- 14. DATOS INICIALES (SEEDS)
 -- =============================================
 
--- 14.1 Tipos de Usuario
 INSERT INTO tipos_usuario (nombre, descripcion, nivel_acceso) VALUES
 ('Super Admin', 'Acceso total al sistema', 5),
 ('Admin', 'Acceso a gestión de contenido', 4),
@@ -564,7 +559,6 @@ INSERT INTO tipos_usuario (nombre, descripcion, nivel_acceso) VALUES
 ('Estudiante', 'Acceso a consumo de contenido', 2),
 ('Invitado', 'Acceso limitado a contenido público', 1);
 
--- 14.2 Tipos de Autoridad
 INSERT INTO tipos_autoridad (nombre, descripcion, nivel_jerarquico) VALUES
 ('Presidente', 'Jefe de Estado y Gobierno', 1),
 ('Ministro', 'Jefe de cartera ministerial', 2),
@@ -573,14 +567,12 @@ INSERT INTO tipos_autoridad (nombre, descripcion, nivel_jerarquico) VALUES
 ('Alcalde', 'Jefe de municipalidad', 4),
 ('Gobernador', 'Jefe de región', 4);
 
--- 14.3 Autoridades Actualizadas 2026
 INSERT INTO autoridades (tipo_autoridad_id, nombre, apellido_paterno, cargo, descripcion_cargo, partido, activo, prioridad) VALUES
 (1, 'José Antonio', 'Kast', 'Presidente de la República', 'Jefe de Estado y de Gobierno de Chile. Dirige el Gobierno y la administración del Estado.', 'Republicano', TRUE, 10),
 (2, 'Paulina', 'Núñez', 'Presidenta del Senado', 'Preside la Cámara Alta, representa al Senado y dirige el debate y votación de las leyes.', 'Renovación Nacional', TRUE, 9),
 (3, 'Jorge', 'Alessandri', 'Presidente de la Cámara de Diputados', 'Preside la Cámara Baja, coordina la labor parlamentaria y fiscaliza los actos del Ejecutivo.', 'UDI', TRUE, 8),
 (4, 'Gloria Ana', 'Chevesich', 'Presidenta de la Corte Suprema', 'Encabeza el máximo tribunal del país y representa la administración del sistema de justicia.', 'Independiente', TRUE, 7);
 
--- 14.4 Funciones de Autoridades
 INSERT INTO funciones_autoridad (autoridad_id, descripcion, orden) VALUES
 (1, 'Representar al país en el ámbito internacional', 1),
 (1, 'Dirigir el gobierno y la administración del Estado', 2),
@@ -593,14 +585,12 @@ INSERT INTO funciones_autoridad (autoridad_id, descripcion, orden) VALUES
 (3, 'Coordinar el trabajo legislativo', 2),
 (3, 'Fiscalizar los actos del Ejecutivo', 3);
 
--- 14.5 Propuestas de Ejemplo
 INSERT INTO propuestas (autoridad_id, titulo, descripcion, estado) VALUES
 (1, 'Plan Control Fronterizo', 'Refuerzo militar y tecnológico en la frontera norte', 'Publicada'),
 (1, 'Bono de Apoyo Familiar', '$30.000 por hijo para familias vulnerables', 'Publicada'),
 (2, 'Ley de Participación Ciudadana', 'Fortalecer la democracia participativa', 'En tramitación'),
 (3, 'Ley de Presupuestos 2027', 'Distribución de recursos del país', 'En preparación');
 
--- 14.6 Mundos de Aprendizaje
 INSERT INTO mundos_aprendizaje (nombre, icono, descripcion, nivel_minimo, orden) VALUES
 ('Soy Ciudadano', 'user-graduate', 'Aprende sobre tus derechos, deberes y cómo participar activamente en tu comunidad', 1, 1),
 ('Cómo funciona Chile', 'landmark', 'Descubre cómo se organiza el Estado chileno y cómo se toman las decisiones', 2, 2),
@@ -609,7 +599,6 @@ INSERT INTO mundos_aprendizaje (nombre, icono, descripcion, nivel_minimo, orden)
 ('Poder Judicial', 'balance-scale', 'Aprende sobre el sistema judicial y la justicia en Chile', 3, 5),
 ('Participación Ciudadana', 'handshake', 'Descubre las formas de participación ciudadana en democracia', 1, 6);
 
--- 14.7 Insignias
 INSERT INTO insignias (nombre, icono, descripcion, xp_requerido, lecciones_requeridas, rareza) VALUES
 ('Nuevo Ciudadano', 'star', 'Completaste tu primera lección', 0, 1, 'Común'),
 ('Aprendiz Activo', 'book', 'Completaste 5 lecciones', 250, 5, 'Poco común'),
@@ -621,7 +610,6 @@ INSERT INTO insignias (nombre, icono, descripcion, xp_requerido, lecciones_reque
 ('Maestro Cívico', 'graduation-cap', 'Alcanzaste el nivel 5', 750, 15, 'Épica'),
 ('Leyenda', 'crown', 'Alcanzaste el nivel 10', 2000, 30, 'Legendaria');
 
--- 14.8 Niveles
 INSERT INTO niveles (nivel, nombre, xp_requerido, icono, descripcion) VALUES
 (1, 'Ciudadano Novato', 0, 'seedling', 'Comienza tu viaje cívico'),
 (2, 'Ciudadano Aprendiz', 100, 'sprout', 'Descubriendo el mundo cívico'),
@@ -635,22 +623,15 @@ INSERT INTO niveles (nivel, nombre, xp_requerido, icono, descripcion) VALUES
 (10, 'Leyenda Cívica', 4500, 'diamond', 'Leyenda de la educación cívica');
 
 -- =============================================
--- 15. USUARIOS DE PRUEBA (TODOS CON SUS TIPOS)
+-- 15. USUARIOS DE PRUEBA
 -- =============================================
 
 INSERT INTO usuarios (tipo_usuario_id, nombre, apellido_paterno, email, password, nivel, xp) VALUES
--- Super Admin (tipo 1)
 (1, 'Administrador', 'Sistema', 'admin@politicore.cl', 'admin123', 1, 0),
-
--- Admin (tipo 2)
 (2, 'Gestor', 'Contenido', 'gestor@politicore.cl', 'gestor123', 1, 0),
-
--- Docentes (tipo 3)
 (3, 'Prof. Ana', 'Martínez', 'ana@docente.cl', 'password123', 1, 0),
 (3, 'Prof. Carlos', 'Reyes', 'carlos@docente.cl', 'password123', 1, 0),
 (3, 'Prof. Laura', 'Fernández', 'laura@docente.cl', 'password123', 1, 0),
-
--- Estudiantes (tipo 4)
 (4, 'Juan', 'Pérez', 'juan@estudiante.cl', 'password123', 1, 0),
 (4, 'María', 'González', 'maria@estudiante.cl', 'password123', 1, 0),
 (4, 'Usuario', 'Prueba', 'test@politicore.cl', 'test123', 1, 0),
@@ -658,7 +639,7 @@ INSERT INTO usuarios (tipo_usuario_id, nombre, apellido_paterno, email, password
 (4, 'Camila', 'Torres', 'camila@estudiante.cl', 'password123', 1, 0);
 
 -- =============================================
--- 16. NOTICIAS ACTUALIZADAS (Julio 2026)
+-- 16. NOTICIAS (Julio 2026)
 -- =============================================
 
 INSERT INTO noticias (titulo, descripcion, fecha, icono, activa, destacada) VALUES
@@ -671,11 +652,11 @@ INSERT INTO noticias (titulo, descripcion, fecha, icono, activa, destacada) VALU
 -- =============================================
 
 INSERT INTO campanas_simulacion (titulo, descripcion, dificultad, introduccion, escenas, finales, eventos, xp_recompensa, activa) VALUES
-('Soy Ciudadano', 'Participa en tu primera experiencia cívica como Presidente del Centro de Estudiantes', 'Intermedio', 
-'{"contexto": "Eres estudiante de último año y te postulaste como Presidente del Centro de Estudiantes. Ganaste las elecciones con el 60% de los votos.", "personajes": [{"nombre": "Sra. Patricia", "rol": "Directora", "opinion": "Prefiere mantener el orden"}, {"nombre": "Javier", "rol": "Estudiante", "opinion": "Quiere cambios radicales"}], "objetivo": "Gestionar el Centro de Estudiantes"}', 
-'[{"id": 1, "tipo": "decision", "contexto": "Tu primera semana como Presidente. Los estudiantes te piden organizar una manifestación.", "opciones": [{"texto": "Organizar la manifestación", "consecuencias": {"Participacion": 8, "Confianza": 5}}, {"texto": "Buscar diálogo con la Directora", "consecuencias": {"Confianza": 6, "Participacion": 3}}]}]', 
-'[{"condiciones": "Participacion > 50", "texto": "Lograste movilizar a los estudiantes.", "reflexion": "La participación ciudadana es fundamental."}]', 
-'[{"trigger": 2, "titulo": "Corte de agua", "descripcion": "El colegio no tiene agua por una fuga."}]', 
+('Soy Ciudadano', 'Participa en tu primera experiencia cívica como Presidente del Centro de Estudiantes', 'Intermedio',
+'{"contexto": "Eres estudiante de último año y te postulaste como Presidente del Centro de Estudiantes. Ganaste las elecciones con el 60% de los votos.", "personajes": [{"nombre": "Sra. Patricia", "rol": "Directora", "opinion": "Prefiere mantener el orden"}, {"nombre": "Javier", "rol": "Estudiante", "opinion": "Quiere cambios radicales"}], "objetivo": "Gestionar el Centro de Estudiantes"}',
+'[{"id": 1, "tipo": "decision", "contexto": "Tu primera semana como Presidente. Los estudiantes te piden organizar una manifestación.", "opciones": [{"texto": "Organizar la manifestación", "consecuencias": {"Participacion": 8, "Confianza": 5}}, {"texto": "Buscar diálogo con la Directora", "consecuencias": {"Confianza": 6, "Participacion": 3}}]}]',
+'[{"condiciones": "Participacion > 50", "texto": "Lograste movilizar a los estudiantes.", "reflexion": "La participación ciudadana es fundamental."}]',
+'[{"trigger": 2, "titulo": "Corte de agua", "descripcion": "El colegio no tiene agua por una fuga."}]',
 100, TRUE),
 
 ('Presupuesto Municipal', 'Toma decisiones sobre el presupuesto de tu comuna y gestiona los recursos públicos', 'Avanzado',
@@ -695,114 +676,108 @@ INSERT INTO establecimientos (nombre, tipo, comuna, region) VALUES
 ('Liceo Industrial', 'Particular Subvencionado', 'Concepción', 'Biobío');
 
 -- =============================================
--- 19. CARTAS DE EVENTO CONTEXTUALES Y RUTAS
+-- 19. CARTAS DE EVENTO Y RUTAS
 -- =============================================
 
--- 19.1 CARTAS GENERALES (aparecen en TODAS las simulaciones)
 INSERT INTO cartas_evento (titulo, descripcion, icono, tipo, efectos, mensaje_visible, probabilidad, campana_id, escenas_validas, contexto) VALUES
-('📱 Rumor viral', 'Un rumor falso sobre la situación se ha vuelto viral en redes sociales.', 'virus', 'sorpresa', 
- '{"Confianza": -8, "Participacion": 4}', 
+('📱 Rumor viral', 'Un rumor falso sobre la situación se ha vuelto viral en redes sociales.', 'virus', 'sorpresa',
+ '{"Confianza": -8, "Participacion": 4}',
  '¡Rumor viral! Las redes sociales están hablando mal de la situación.', 0.08, NULL, NULL, 'general'),
 
-('🎉 Día festivo inesperado', 'El gobierno decreta un día festivo inesperado. La gente está contenta.', 'party-horn', 'oportunidad', 
- '{"Felicidad": 8, "Confianza": 3, "Economia": -2}', 
+('🎉 Día festivo inesperado', 'El gobierno decreta un día festivo inesperado. La gente está contenta.', 'party-horn', 'oportunidad',
+ '{"Felicidad": 8, "Confianza": 3, "Economia": -2}',
  '¡Día festivo! La gente está contenta.', 0.06, NULL, NULL, 'general');
 
--- 19.2 CARTAS PARA SIMULACIÓN "Soy Ciudadano" (campana_id = 1)
 INSERT INTO cartas_evento (titulo, descripcion, icono, tipo, efectos, mensaje_visible, probabilidad, campana_id, escenas_validas, contexto) VALUES
-('🌋 ¡Erupción del volcán!', 
- 'El volcán cercano ha entrado en actividad. El paseo de curso queda suspendido y hay que evacuar algunas zonas.', 
- 'volcano', 'crisis', 
- '{"Participacion": -5, "Confianza": 3, "Seguridad": 8}', 
- '¡Alerta volcánica! El paseo de curso se suspende por seguridad.', 
+('🌋 ¡Erupción del volcán!',
+ 'El volcán cercano ha entrado en actividad. El paseo de curso queda suspendido y hay que evacuar algunas zonas.',
+ 'volcano', 'crisis',
+ '{"Participacion": -5, "Confianza": 3, "Seguridad": 8}',
+ '¡Alerta volcánica! El paseo de curso se suspende por seguridad.',
  0.12, 1, '[3, 6, 9]', 'colegio'),
 
-('🦆 El Pato Presidente desapareció', 
- 'La mascota del colegio, el Pato Presidente, ha desaparecido. Todo el colegio está buscándolo.', 
- 'duck', 'sorpresa', 
- '{"Participacion": 6, "Confianza": 4, "Seguridad": -2}', 
- '¡El Pato Presidente desapareció! Todos lo están buscando.', 
+('🦆 El Pato Presidente desapareció',
+ 'La mascota del colegio, el Pato Presidente, ha desaparecido. Todo el colegio está buscándolo.',
+ 'duck', 'sorpresa',
+ '{"Participacion": 6, "Confianza": 4, "Seguridad": -2}',
+ '¡El Pato Presidente desapareció! Todos lo están buscando.',
  0.10, 1, '[2, 5, 8]', 'colegio'),
 
-('🎤 Visita del periodista', 
- 'Un periodista local quiere entrevistarte en representación del colegio para hablar sobre los logros estudiantiles.', 
- 'microphone', 'oportunidad', 
- '{"Confianza": 7, "Participacion": 5, "Educacion": 3}', 
- '¡Un periodista quiere entrevistarte! Prepárate para hablar del colegio.', 
+('🎤 Visita del periodista',
+ 'Un periodista local quiere entrevistarte en representación del colegio para hablar sobre los logros estudiantiles.',
+ 'microphone', 'oportunidad',
+ '{"Confianza": 7, "Participacion": 5, "Educacion": 3}',
+ '¡Un periodista quiere entrevistarte! Prepárate para hablar del colegio.',
  0.10, 1, '[4, 7, 10]', 'colegio'),
 
-('🎮 Torneo de videojuegos', 
- 'Un grupo de estudiantes propone organizar un torneo de videojuegos para recaudar fondos. La Directora no está segura.', 
- 'gamepad', 'oportunidad', 
- '{"Participacion": 7, "Economia": 4, "Confianza": 3}', 
- '¡Torneo de videojuegos! Los estudiantes quieren organizarlo.', 
+('🎮 Torneo de videojuegos',
+ 'Un grupo de estudiantes propone organizar un torneo de videojuegos para recaudar fondos. La Directora no está segura.',
+ 'gamepad', 'oportunidad',
+ '{"Participacion": 7, "Economia": 4, "Confianza": 3}',
+ '¡Torneo de videojuegos! Los estudiantes quieren organizarlo.',
  0.10, 1, '[3, 6, 9]', 'colegio'),
 
-('🌧️ Lluvias torrenciales', 
- 'Fuertes lluvias han afectado la comuna. El colegio está incomunicado y hay que suspender clases.', 
- 'cloud-rain', 'crisis', 
- '{"Seguridad": 8, "Educacion": -4, "Participacion": 2}', 
- '¡Lluvias torrenciales! El colegio está incomunicado.', 
+('🌧️ Lluvias torrenciales',
+ 'Fuertes lluvias han afectado la comuna. El colegio está incomunicado y hay que suspender clases.',
+ 'cloud-rain', 'crisis',
+ '{"Seguridad": 8, "Educacion": -4, "Participacion": 2}',
+ '¡Lluvias torrenciales! El colegio está incomunicado.',
  0.12, 1, '[2, 4, 8]', 'colegio'),
 
-('📊 Crisis económica en el centro', 
- 'El centro de estudiantes enfrenta una crisis económica. No hay fondos para las actividades planificadas.', 
- 'chart-line', 'crisis', 
- '{"Economia": -10, "Confianza": -5, "Participacion": 3}', 
- '¡Crisis económica! El centro de estudiantes no tiene fondos.', 
+('📊 Crisis económica en el centro',
+ 'El centro de estudiantes enfrenta una crisis económica. No hay fondos para las actividades planificadas.',
+ 'chart-line', 'crisis',
+ '{"Economia": -10, "Confianza": -5, "Participacion": 3}',
+ '¡Crisis económica! El centro de estudiantes no tiene fondos.',
  0.08, 1, '[4, 6, 8]', 'colegio');
 
--- 19.3 CARTAS PARA SIMULACIÓN "Presupuesto Municipal" (campana_id = 2)
 INSERT INTO cartas_evento (titulo, descripcion, icono, tipo, efectos, mensaje_visible, probabilidad, campana_id, escenas_validas, contexto) VALUES
-('🌧️ Inundación en la comuna', 
- 'Fuertes lluvias han causado inundaciones en varias zonas de la comuna. Se necesitan recursos de emergencia.', 
- 'cloud-rain', 'crisis', 
- '{"Seguridad": -8, "Economia": -5, "Confianza": 3}', 
- '¡Inundación! Se necesitan recursos de emergencia.', 
+('🌧️ Inundación en la comuna',
+ 'Fuertes lluvias han causado inundaciones en varias zonas de la comuna. Se necesitan recursos de emergencia.',
+ 'cloud-rain', 'crisis',
+ '{"Seguridad": -8, "Economia": -5, "Confianza": 3}',
+ '¡Inundación! Se necesitan recursos de emergencia.',
  0.15, 2, '[2, 3, 4]', 'municipal'),
 
-('🏗️ Proyecto de infraestructura federal', 
- 'El gobierno central anuncia un proyecto de infraestructura para tu comuna. Hay que gestionar los recursos.', 
- 'building', 'oportunidad', 
- '{"Economia": 10, "Confianza": 5, "Seguridad": 3}', 
- '¡Proyecto de infraestructura! El gobierno central invertirá en la comuna.', 
+('🏗️ Proyecto de infraestructura federal',
+ 'El gobierno central anuncia un proyecto de infraestructura para tu comuna. Hay que gestionar los recursos.',
+ 'building', 'oportunidad',
+ '{"Economia": 10, "Confianza": 5, "Seguridad": 3}',
+ '¡Proyecto de infraestructura! El gobierno central invertirá en la comuna.',
  0.10, 2, '[5, 6, 7]', 'municipal'),
 
-('👥 Protesta de vecinos', 
- 'Los vecinos protestan por el mal estado de las calles. Exigen que el presupuesto se use para reparaciones.', 
- 'users', 'crisis', 
- '{"Participacion": 8, "Confianza": -4, "Seguridad": -3}', 
- '¡Protesta de vecinos! Exigen reparación de calles.', 
+('👥 Protesta de vecinos',
+ 'Los vecinos protestan por el mal estado de las calles. Exigen que el presupuesto se use para reparaciones.',
+ 'users', 'crisis',
+ '{"Participacion": 8, "Confianza": -4, "Seguridad": -3}',
+ '¡Protesta de vecinos! Exigen reparación de calles.',
  0.12, 2, '[3, 5, 8]', 'municipal'),
 
-('💰 Donación anónima', 
- 'Un empresario local dona $5.000.000 para la comuna sin condiciones.', 
- 'money-bill', 'oportunidad', 
- '{"Economia": 15, "Confianza": 3, "Participacion": 2}', 
- '¡Donación anónima! $5.000.000 para la comuna.', 
+('💰 Donación anónima',
+ 'Un empresario local dona $5.000.000 para la comuna sin condiciones.',
+ 'money-bill', 'oportunidad',
+ '{"Economia": 15, "Confianza": 3, "Participacion": 2}',
+ '¡Donación anónima! $5.000.000 para la comuna.',
  0.08, 2, '[4, 6, 9]', 'municipal'),
 
-('🚰 Crisis de agua potable', 
- 'La comuna enfrenta una crisis de agua potable. Hay que tomar medidas urgentes.', 
- 'water', 'crisis', 
- '{"Seguridad": -10, "Economia": -5, "Confianza": -3}', 
- '¡Crisis de agua! Hay que tomar medidas urgentes.', 
+('🚰 Crisis de agua potable',
+ 'La comuna enfrenta una crisis de agua potable. Hay que tomar medidas urgentes.',
+ 'water', 'crisis',
+ '{"Seguridad": -10, "Economia": -5, "Confianza": -3}',
+ '¡Crisis de agua! Hay que tomar medidas urgentes.',
  0.10, 2, '[3, 5, 7]', 'municipal');
 
--- 19.4 RUTAS ALTERNATIVAS PARA LAS CARTAS
 INSERT INTO rutas_alternativas (carta_id, escena_id, nuevo_contexto, nuevo_problema, opciones, siguiente_escena) VALUES
--- Ruta para Erupción del volcán (carta_id = 3, escena 3)
-(3, 3, 
+(3, 3,
  'La erupción del volcán ha causado que se suspenda el paseo de curso. Los estudiantes están muy enojados porque esperaban este paseo todo el año.',
  'Los estudiantes han organizado una protesta pacífica en el patio principal. Exigen que se reprograme el paseo o que se les compense de alguna forma. La Directora te pide que manejes la situación.',
  '[
     {"texto": "Prometer reprogramar el paseo para el próximo mes", "consecuencias": {"Confianza": 7, "Participacion": 5, "Economia": -4}},
     {"texto": "Ofrecer una actividad alternativa dentro del colegio", "consecuencias": {"Participacion": 4, "Confianza": 3, "Educacion": 5}},
     {"texto": "Explicar que es por seguridad y no se puede hacer nada", "consecuencias": {"Confianza": -6, "Participacion": -4, "Seguridad": 3}}
- ]', 
+ ]',
  4),
 
--- Ruta para El Pato Presidente (carta_id = 4, escena 5)
 (4, 5,
  'La desaparición del Pato Presidente ha causado revuelo en el colegio. Los estudiantes están organizando brigadas de búsqueda.',
  'Un grupo de estudiantes encontró al Pato Presidente en el patio trasero, pero está asustado y no quiere salir. Los estudiantes te piden ayuda para rescatarlo. Además, apareció un cartel ofreciendo recompensa por el pato.',
@@ -810,10 +785,9 @@ INSERT INTO rutas_alternativas (carta_id, escena_id, nuevo_contexto, nuevo_probl
     {"texto": "Ir personalmente a rescatar al pato", "consecuencias": {"Confianza": 8, "Participacion": 5, "Seguridad": 2}},
     {"texto": "Pedir ayuda a los profesores para el rescate", "consecuencias": {"Confianza": 5, "Seguridad": 4, "Participacion": 3}},
     {"texto": "Dejar que los estudiantes lo rescaten solos", "consecuencias": {"Participacion": 6, "Confianza": -3, "Seguridad": -4}}
- ]', 
+ ]',
  6),
 
--- Ruta para Visita del periodista (carta_id = 5, escena 7)
 (5, 7,
  'El periodista ha publicado un artículo sobre el colegio. El artículo ha tenido mucha repercusión y ahora quieren hacer un reportaje en vivo desde el colegio.',
  'El periodista quiere hacer una entrevista en vivo desde el colegio, pero los estudiantes están nerviosos. Algunos quieren hablar, otros no. La Directora te pide que organices todo.',
@@ -821,10 +795,9 @@ INSERT INTO rutas_alternativas (carta_id, escena_id, nuevo_contexto, nuevo_probl
     {"texto": "Permitir que los estudiantes participen voluntariamente", "consecuencias": {"Participacion": 8, "Confianza": 6, "Seguridad": 2}},
     {"texto": "Seleccionar tú a los estudiantes que hablarán", "consecuencias": {"Confianza": 4, "Seguridad": 5, "Participacion": 3}},
     {"texto": "Cancelar el reportaje y hacer una declaración escrita", "consecuencias": {"Confianza": -4, "Participacion": -3, "Seguridad": 6}}
- ]', 
+ ]',
  8),
 
--- Ruta para Torneo de videojuegos (carta_id = 6, escena 9)
 (6, 9,
  'El torneo de videojuegos ha sido un éxito, pero ha generado polémica. Algunos padres creen que es una pérdida de tiempo.',
  'Los padres están organizando una reunión para pedir que se cancelen eventos como este. Los estudiantes están molestos y se sienten atacados.',
@@ -832,10 +805,9 @@ INSERT INTO rutas_alternativas (carta_id, escena_id, nuevo_contexto, nuevo_probl
     {"texto": "Defender el torneo y explicar sus beneficios", "consecuencias": {"Confianza": 7, "Participacion": 6, "Seguridad": -3}},
     {"texto": "Negociar con los padres para mantener el torneo", "consecuencias": {"Confianza": 5, "Participacion": 4, "Seguridad": 4}},
     {"texto": "Cancelar el torneo para evitar conflictos", "consecuencias": {"Confianza": -6, "Participacion": -8, "Seguridad": 6}}
- ]', 
+ ]',
  10),
 
--- Ruta para Lluvias torrenciales (carta_id = 7, escena 2)
 (7, 2,
  'Las lluvias han causado daños en el colegio. El gimnasio está inundado y la biblioteca tiene goteras.',
  'Los estudiantes no pueden usar el gimnasio ni la biblioteca. Los profesores necesitan espacios alternativos para dar clases.',
@@ -843,10 +815,9 @@ INSERT INTO rutas_alternativas (carta_id, escena_id, nuevo_contexto, nuevo_probl
     {"texto": "Reubicar las clases en otros espacios", "consecuencias": {"Educacion": 4, "Confianza": 3, "Seguridad": 5}},
     {"texto": "Suspender clases hasta que se reparen los daños", "consecuencias": {"Educacion": -6, "Seguridad": 7, "Confianza": 2}},
     {"texto": "Pedir ayuda a la municipalidad para las reparaciones", "consecuencias": {"Confianza": 6, "Economia": 5, "Seguridad": 4}}
- ]', 
+ ]',
  3),
 
--- Ruta para Inundación en la comuna (carta_id = 9, escena 3)
 (9, 3,
  'Las inundaciones han causado daños en la comuna. Se necesitan recursos de emergencia.',
  'Los vecinos están organizando un centro de acopio para los damnificados. La municipalidad necesita coordinar la ayuda.',
@@ -854,11 +825,125 @@ INSERT INTO rutas_alternativas (carta_id, escena_id, nuevo_contexto, nuevo_probl
     {"texto": "Destinar fondos de emergencia", "consecuencias": {"Economia": -8, "Confianza": 8, "Seguridad": 6}},
     {"texto": "Coordinar con el gobierno central", "consecuencias": {"Confianza": 5, "Economia": 3, "Seguridad": 4}},
     {"texto": "Pedir donaciones a la comunidad", "consecuencias": {"Participacion": 8, "Economia": 4, "Confianza": 3}}
- ]', 
+ ]',
  4);
 
 -- =============================================
--- 20. PROCEDIMIENTOS ALMACENADOS
+-- 20. FORO - CATEGORÍAS, TEMAS, RESPUESTAS, VOTOS, REPORTES, NOTIFICACIONES
+-- =============================================
+
+-- 20.1 Categorías (dinámicas, editables desde admin)
+CREATE TABLE foro_categorias (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(60) NOT NULL UNIQUE,
+    slug VARCHAR(60) NOT NULL UNIQUE,
+    descripcion VARCHAR(255),
+    icono VARCHAR(50) DEFAULT 'comments',
+    color VARCHAR(20) DEFAULT '#14B8A6',
+    orden INT DEFAULT 0,
+    activa BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO foro_categorias (nombre, slug, descripcion, icono, color, orden) VALUES
+('Actualidad',             'actualidad',     'Noticias y hechos recientes',            'newspaper',      '#2563EB', 1),
+('Educación',              'educacion',      'Colegios, universidades y aprendizaje',  'graduation-cap', '#10B981', 2),
+('Política',               'politica',       'Debate político y sistema',              'landmark',       '#8B5CF6', 3),
+('Medioambiente',          'medioambiente',  'Naturaleza, clima y sostenibilidad',     'leaf',           '#22C55E', 4),
+('Economía',               'economia',       'Trabajo, dinero y desarrollo',           'chart-line',     '#F59E0B', 5),
+('Participación ciudadana','participacion',  'Cómo involucrarse en lo público',        'handshake',      '#14B8A6', 6),
+('Comunidad',              'comunidad',      'Vida en tu barrio y colegio',            'users',          '#EC4899', 7),
+('Debate',                 'debate',         'Posturas y argumentación',               'comments',       '#EF4444', 8),
+('Otros',                  'otros',          'Cualquier otro tema',                    'circle',         '#64748B', 9);
+
+-- 20.2 Temas (discusiones)
+CREATE TABLE foro_temas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    titulo VARCHAR(150) NOT NULL,
+    contenido TEXT NOT NULL,
+    usuario_id INT NOT NULL,
+    categoria_id INT NOT NULL,
+    noticia_id INT NULL,
+    estado ENUM('activo','cerrado','oculto') DEFAULT 'activo',
+    fijado BOOLEAN DEFAULT FALSE,
+    vistas INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (categoria_id) REFERENCES foro_categorias(id) ON DELETE RESTRICT,
+    FOREIGN KEY (noticia_id) REFERENCES noticias(id) ON DELETE SET NULL,
+    INDEX idx_temas_estado (estado),
+    INDEX idx_temas_categoria (categoria_id),
+    INDEX idx_temas_created (created_at),
+    FULLTEXT INDEX ft_temas (titulo, contenido)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 20.3 Respuestas (con jerarquía padre-hijo)
+CREATE TABLE foro_respuestas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tema_id INT NOT NULL,
+    usuario_id INT NOT NULL,
+    respuesta_padre_id INT NULL,
+    contenido TEXT NOT NULL,
+    estado ENUM('activo','oculto') DEFAULT 'activo',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (tema_id) REFERENCES foro_temas(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (respuesta_padre_id) REFERENCES foro_respuestas(id) ON DELETE CASCADE,
+    INDEX idx_resp_tema (tema_id),
+    INDEX idx_resp_padre (respuesta_padre_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 20.4 Votos (un usuario = un voto por ítem)
+CREATE TABLE foro_votos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    tema_id INT NULL,
+    respuesta_id INT NULL,
+    tipo ENUM('up','down') NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_voto_tema (usuario_id, tema_id),
+    UNIQUE KEY unique_voto_resp (usuario_id, respuesta_id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (tema_id) REFERENCES foro_temas(id) ON DELETE CASCADE,
+    FOREIGN KEY (respuesta_id) REFERENCES foro_respuestas(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 20.5 Reportes
+CREATE TABLE foro_reportes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    reportado_por INT NOT NULL,
+    tema_id INT NULL,
+    respuesta_id INT NULL,
+    motivo ENUM('spam','insultos','falso','acoso','inapropiado','otro') NOT NULL,
+    detalle VARCHAR(500),
+    estado ENUM('pendiente','revisado','descartado','sancionado') DEFAULT 'pendiente',
+    revisado_por INT NULL,
+    revisado_en TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reportado_por) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (tema_id) REFERENCES foro_temas(id) ON DELETE CASCADE,
+    FOREIGN KEY (respuesta_id) REFERENCES foro_respuestas(id) ON DELETE CASCADE,
+    FOREIGN KEY (revisado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+    INDEX idx_rep_estado (estado)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 20.6 Notificaciones
+CREATE TABLE foro_notificaciones (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    tipo VARCHAR(30) NOT NULL,
+    mensaje VARCHAR(255) NOT NULL,
+    enlace VARCHAR(255),
+    leido BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    INDEX idx_notif_usuario (usuario_id, leido)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================
+-- 21. PROCEDIMIENTOS ALMACENADOS
 -- =============================================
 
 DELIMITER //
@@ -867,13 +952,13 @@ CREATE PROCEDURE sp_actualizar_nivel_usuario(IN p_usuario_id INT)
 BEGIN
     DECLARE v_xp INT;
     DECLARE v_nuevo_nivel INT;
-    
+
     SELECT xp INTO v_xp FROM usuarios WHERE id = p_usuario_id;
-    
-    SELECT MAX(nivel) INTO v_nuevo_nivel 
-    FROM niveles 
+
+    SELECT MAX(nivel) INTO v_nuevo_nivel
+    FROM niveles
     WHERE xp_requerido <= v_xp;
-    
+
     IF v_nuevo_nivel IS NOT NULL THEN
         UPDATE usuarios SET nivel = v_nuevo_nivel WHERE id = p_usuario_id;
     END IF;
@@ -886,9 +971,9 @@ CREATE PROCEDURE sp_registrar_progreso_leccion(
 )
 BEGIN
     DECLARE v_xp_leccion INT;
-    
+
     SELECT xp INTO v_xp_leccion FROM lecciones WHERE id = p_leccion_id;
-    
+
     INSERT INTO progreso_lecciones (usuario_id, leccion_id, completada, puntaje, fecha_completada)
     VALUES (p_usuario_id, p_leccion_id, TRUE, p_puntaje, NOW())
     ON DUPLICATE KEY UPDATE
@@ -896,7 +981,7 @@ BEGIN
     puntaje = p_puntaje,
     fecha_completada = NOW(),
     intentos = intentos + 1;
-    
+
     UPDATE usuarios SET xp = xp + v_xp_leccion WHERE id = p_usuario_id;
     CALL sp_actualizar_nivel_usuario(p_usuario_id);
 END //
@@ -904,53 +989,54 @@ END //
 DELIMITER ;
 
 -- =============================================
--- 21. VERIFICACIÓN FINAL
+-- 22. VERIFICACIÓN FINAL
 -- =============================================
 
-SELECT '✅ Base de datos Politicore 2026 completada!' as Mensaje;
-SELECT '📋 Tablas creadas:' as Info;
+SELECT '✅ Base de datos Politicore 2026 completada!' AS Mensaje;
+SELECT '📋 Tablas creadas:' AS Info;
 SHOW TABLES;
 
-SELECT '👤 Usuarios creados:' as Info;
+SELECT '👤 Usuarios creados:' AS Info;
 SELECT id, nombre, apellido_paterno, email, tipo_usuario_id, nivel, xp FROM usuarios;
 
-SELECT '📚 Lecciones creadas:' as Info;
+SELECT '📚 Lecciones creadas:' AS Info;
 SELECT id, titulo, nivel, xp FROM lecciones;
 
-SELECT '🎮 Simulaciones creadas:' as Info;
+SELECT '🎮 Simulaciones creadas:' AS Info;
 SELECT id, titulo, dificultad, activa FROM campanas_simulacion;
 
-SELECT '📰 Noticias actualizadas:' as Info;
+SELECT '📰 Noticias actualizadas:' AS Info;
 SELECT id, titulo, fecha FROM noticias;
 
-SELECT '🏛️ Autoridades:' as Info;
+SELECT '🏛️ Autoridades:' AS Info;
 SELECT id, nombre, apellido_paterno, cargo, partido FROM autoridades;
 
-SELECT '📋 Tablas de tareas:' as Info;
-SHOW TABLES LIKE 'tareas%';
-SHOW TABLES LIKE 'entregas%';
-SHOW TABLES LIKE 'descargas%';
-
-SELECT '📋 Cartas de evento:' as Info;
+SELECT '📋 Cartas de evento:' AS Info;
 SELECT id, titulo, icono, probabilidad, campana_id, escenas_validas FROM cartas_evento;
 
-SELECT '📋 Rutas alternativas:' as Info;
-SELECT ra.id, ce.titulo as carta, ra.escena_id, ra.siguiente_escena 
+SELECT '📋 Rutas alternativas:' AS Info;
+SELECT ra.id, ce.titulo AS carta, ra.escena_id, ra.siguiente_escena
 FROM rutas_alternativas ra
 JOIN cartas_evento ce ON ra.carta_id = ce.id;
 
-SELECT '📊 Distribución de cartas por simulación:' as Info;
-SELECT 
-    CASE 
+SELECT '📊 Distribución de cartas por simulación:' AS Info;
+SELECT
+    CASE
         WHEN c.campana_id IS NULL THEN '🌍 General (todas)'
         ELSE CONCAT('📌 ', s.titulo)
-    END as simulacion,
-    COUNT(*) as total_cartas
+    END AS simulacion,
+    COUNT(*) AS total_cartas
 FROM cartas_evento c
 LEFT JOIN campanas_simulacion s ON c.campana_id = s.id
 GROUP BY c.campana_id, s.titulo;
 
-ALTER TABLE tareas ADD COLUMN archivo_nombre VARCHAR(255) NULL;
+SELECT '💬 Categorías del foro:' AS Info;
+SELECT id, nombre, slug, color FROM foro_categorias ORDER BY orden;
+
+ALTER TABLE noticias
+    ADD COLUMN por_que_importa TEXT NULL AFTER contenido,
+    ADD COLUMN como_te_afecta  TEXT NULL AFTER por_que_importa,
+    ADD COLUMN contexto        TEXT NULL AFTER como_te_afecta;
 
 -- =============================================
 -- FIN DEL SCRIPT

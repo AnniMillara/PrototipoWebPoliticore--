@@ -1,171 +1,607 @@
 {% extends "base.html" %}
-
-{% block title %}{{ tema.titulo }} - PolitiCore{% endblock %}
+{% block title %}{{ tema.titulo }} - Foro PolitiCore{% endblock %}
 
 {% block extra_css %}
 <style>
-    .votar-btn { cursor: pointer; transition: transform 0.2s ease; }
-    .votar-btn:hover { transform: scale(1.2); }
-    .votar-btn.votado-up { color: #10B981; }
-    .votar-btn.votado-down { color: #EF4444; }
-    .respuesta-card { transition: background 0.2s ease; border-left: 4px solid var(--primary-turquoise); }
-    .respuesta-card:hover { background: #F8FAFC; }
-    .respuesta-card .hija { margin-left: 2rem; border-left-color: #A78BFA; }
-    .respuesta-card .hija .hija { margin-left: 2rem; border-left-color: #FBBF24; }
-    .avatar-respuesta { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 12px; }
-    .contenido-markdown img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
-    .contenido-markdown { white-space: pre-wrap; }
-    .btn-responder-hijo { font-size: 0.75rem; padding: 2px 8px; }
+    /* Fix del wrapper para que el footer quede al final */
+    .content-wrapper {
+        min-height: 0 !important;
+    }
+
+    .foro-tema-wrap {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    /* PUBLICACIÓN PRINCIPAL (compacta, destacada) */
+    .publicacion {
+        background: #fff;
+        border-radius: 14px;
+        padding: 1.1rem 1.35rem;
+        margin-bottom: 1.1rem;
+        border: 1px solid #E5E7EB;
+        border-left: 4px solid #14B8A6;
+    }
+
+    .publicacion .pub-titulo {
+        font-size: 1.35rem;
+        font-weight: 800;
+        line-height: 1.3;
+        margin: .45rem 0 .5rem;
+        color: #0F172A;
+    }
+
+    .pub-meta {
+        font-size: .8rem;
+        color: #64748B;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+
+    /* Contenido markdown */
+    .contenido-md {
+        line-height: 1.6;
+        word-wrap: break-word;
+        overflow-wrap: anywhere;
+        font-size: .95rem;
+        color: #1E293B;
+    }
+
+    .contenido-md img {
+        max-width: 100%;
+        border-radius: 8px;
+        margin: .35rem 0;
+    }
+
+    .contenido-md a {
+        color: #0D9488;
+    }
+
+    /* Línea de acciones (votos + responder) */
+    .acciones-linea {
+        display: flex;
+        gap: .6rem;
+        align-items: center;
+        font-size: .85rem;
+        margin-top: .75rem;
+        color: #475569;
+        flex-wrap: wrap;
+    }
+
+    .voto-btn {
+        cursor: pointer;
+        padding: 2px 8px;
+        border-radius: 6px;
+        user-select: none;
+        transition: background .15s;
+    }
+
+    .voto-btn:hover {
+        background: #F1F5F9;
+    }
+
+    .voto-up.votado {
+        color: #10B981;
+        background: #D1FAE5;
+    }
+
+    .voto-down.votado {
+        color: #EF4444;
+        background: #FEE2E2;
+    }
+
+    /* AVATAR reutilizable */
+    .avatar-com {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: #E2E8F0;
+        color: #64748B;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: .85rem;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+
+    /* COMENTARIOS (compactos) */
+    .comentario {
+        background: #fff;
+        border-radius: 12px;
+        padding: .85rem 1rem;
+        margin-bottom: .55rem;
+        border: 1px solid #E5E7EB;
+        border-left: 3px solid #E5E7EB;
+        transition: border-color .15s;
+    }
+
+    .comentario:hover {
+        border-left-color: #A78BFA;
+    }
+
+    /* Anidación visual por nivel */
+    .comentario.nivel-1 {
+        margin-left: 1.75rem;
+        border-left-color: #A78BFA;
+        background: #FCFBFF;
+    }
+
+    .comentario.nivel-2 {
+        margin-left: 1.75rem;
+        border-left-color: #FBBF24;
+        background: #FFFDF5;
+    }
+
+    .comentario.nivel-3 {
+        margin-left: 1.75rem;
+        border-left-color: #F59E0B;
+        background: #FFF9EB;
+    }
+
+    .comentario.nivel-4,
+    .comentario.nivel-5 {
+        margin-left: 1.75rem;
+        border-left-color: #94A3B8;
+        background: #F8FAFC;
+    }
+
+    .com-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: .5rem;
+    }
+
+    .com-autor {
+        font-weight: 700;
+        font-size: .92rem;
+        color: #0F172A;
+    }
+
+    .com-fecha {
+        font-size: .72rem;
+        color: #94A3B8;
+    }
+
+    .com-acciones {
+        display: flex;
+        gap: .55rem;
+        align-items: center;
+        font-size: .8rem;
+        color: #64748B;
+        margin-top: .5rem;
+        flex-wrap: wrap;
+    }
+
+    /* Dropdown limpio */
+    .com-dropdown .btn {
+        padding: 0 8px;
+        color: #94A3B8;
+        background: transparent;
+        border: none;
+        line-height: 1;
+    }
+
+    .com-dropdown .btn:hover {
+        color: #334155;
+    }
+
+    /* Formulario inline (dentro de un comentario) */
+    .form-inline-respuesta {
+        margin-top: .6rem;
+        padding: .65rem .75rem;
+        background: #F8FAFC;
+        border-radius: 8px;
+        border: 1px solid #E5E7EB;
+    }
+
+    .form-inline-respuesta textarea {
+        resize: vertical;
+        min-height: 56px;
+        font-size: .9rem;
+    }
+
+    /* Formulario principal */
+    .form-principal {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1rem 1.15rem;
+        border: 1px solid #E5E7EB;
+        margin-top: 1.2rem;
+    }
+
+    .form-principal textarea {
+        min-height: 90px;
+        resize: vertical;
+    }
+
+    /* Estado sin respuestas */
+    .sin-respuestas {
+        text-align: center;
+        padding: 1.75rem 1rem;
+        color: #64748B;
+        background: #F8FAFC;
+        border-radius: 12px;
+        border: 1px dashed #CBD5E1;
+    }
+
+    /* Etiquetas categoría / estado */
+    .tag-cat {
+        display: inline-flex;
+        align-items: center;
+        font-size: .72rem;
+        padding: 3px 10px;
+        border-radius: 50px;
+        font-weight: 600;
+    }
+
+    /* Responsive */
+    @media (max-width: 576px) {
+        .publicacion {
+            padding: .95rem 1rem;
+        }
+
+        .publicacion .pub-titulo {
+            font-size: 1.1rem;
+        }
+
+        .contenido-md {
+            font-size: .9rem;
+        }
+
+        .comentario {
+            padding: .7rem .85rem;
+        }
+
+        .comentario.nivel-1,
+        .comentario.nivel-2,
+        .comentario.nivel-3,
+        .comentario.nivel-4,
+        .comentario.nivel-5 {
+            margin-left: .75rem;
+        }
+
+        .avatar-com {
+            width: 30px;
+            height: 30px;
+            font-size: .75rem;
+        }
+
+        .com-acciones {
+            font-size: .78rem;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container py-4">
-    <div class="row">
-        <div class="col-lg-10 mx-auto">
-            <a href="{{ url_for('foro_index') }}" class="btn btn-outline-secondary btn-sm mb-3"><i class="fas fa-arrow-left me-1"></i> Volver al foro</a>
+    <div class="foro-tema-wrap">
 
-            <!-- Tema principal -->
-            <div class="card-modern mb-4">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h1 class="fw-bold">{{ tema.titulo }}</h1>
-                        <p class="text-muted small">
-                            <img src="{{ tema.autor_foto or url_for('static', filename='img/default-avatar.png') }}" class="avatar-respuesta" onerror="this.style.display='none'">
-                            <i class="fas fa-user me-1"></i> {{ tema.autor_nombre }}
-                            <i class="fas fa-calendar ms-2 me-1"></i> {{ tema.creado_en.strftime('%d/%m/%Y %H:%M') }}
-                            <span class="badge bg-secondary ms-2">{{ tema.categoria }}</span>
-                            <span class="badge bg-light text-dark ms-2"><i class="fas fa-eye me-1"></i> {{ tema.vistas or 0 }} vistas</span>
-                        </p>
-                    </div>
-                    {% if current_user.is_admin %}
-                    <form method="POST" action="{{ url_for('admin_foro_eliminar_tema', tema_id=tema.id) }}" onsubmit="return confirm('¿Eliminar este tema?')">
-                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
-                    </form>
+        <a href="{{ url_for('foro_index') }}" class="btn btn-outline-secondary btn-sm mb-3">
+            <i class="fas fa-arrow-left me-1"></i> Volver al foro
+        </a>
+
+        <!-- ========================================= -->
+        <!-- PUBLICACIÓN ORIGINAL                      -->
+        <!-- ========================================= -->
+        <div class="publicacion">
+            <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                <div>
+                    <span class="tag-cat"
+                        style="background:{{ tema.categoria_color }}20; color:{{ tema.categoria_color }};">
+                        <i class="fas fa-{{ tema.categoria_icono }} me-1"></i>{{ tema.categoria_nombre }}
+                    </span>
+                    {% if tema.estado == 'cerrado' %}
+                    <span class="tag-cat bg-secondary text-white ms-1"><i class="fas fa-lock me-1"></i>Cerrado</span>
+                    {% endif %}
+                    {% if tema.estado == 'oculto' %}
+                    <span class="tag-cat bg-warning text-dark ms-1"><i class="fas fa-eye-slash me-1"></i>Oculto</span>
                     {% endif %}
                 </div>
-                <div class="contenido-markdown">{{ tema.contenido|safe }}</div>
-                <div class="mt-3 d-flex align-items-center gap-3">
-                    <span class="fw-bold">¿Útil?</span>
-                    <span class="votar-btn {% if voto_usuario and voto_usuario.tema == 'up' %}votado-up{% endif %}" onclick="votar('tema', {{ tema.id }}, 'up')"><i class="fas fa-arrow-up"></i></span>
-                    <span id="votos-tema-{{ tema.id }}" class="fw-bold">{{ tema.votos or 0 }}</span>
-                    <span class="votar-btn {% if voto_usuario and voto_usuario.tema == 'down' %}votado-down{% endif %}" onclick="votar('tema', {{ tema.id }}, 'down')"><i class="fas fa-arrow-down"></i></span>
+
+                {% if current_user.is_authenticated %}
+                <div class="dropdown com-dropdown">
+                    <button class="btn" data-bs-toggle="dropdown" aria-label="Acciones"><i
+                            class="fas fa-ellipsis-v"></i></button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        {% if current_user.id == tema.usuario_id or current_user.is_admin_or_super %}
+                        <li><a class="dropdown-item" href="{{ url_for('foro_editar_tema', tema_id=tema.id) }}"><i
+                                    class="fas fa-edit me-2"></i>Editar</a></li>
+                        <li><button class="dropdown-item text-danger" onclick="eliminarTema()"><i
+                                    class="fas fa-trash me-2"></i>Eliminar</button></li>
+                        {% endif %}
+                        {% if current_user.is_admin_or_super %}
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><button class="dropdown-item" onclick="toggleCerrar()"><i class="fas fa-lock me-2"></i>{% if
+                                tema.estado == 'cerrado' %}Reabrir{% else %}Cerrar{% endif %}</button></li>
+                        <li><button class="dropdown-item" onclick="toggleOcultar()"><i
+                                    class="fas fa-eye-slash me-2"></i>{% if tema.estado == 'oculto' %}Mostrar{% else
+                                %}Ocultar{% endif %}</button></li>
+                        {% endif %}
+                        {% if current_user.id != tema.usuario_id %}
+                        <li><button class="dropdown-item text-warning" onclick="reportar('tema', {{ tema.id }})"><i
+                                    class="fas fa-flag me-2"></i>Reportar</button></li>
+                        {% endif %}
+                    </ul>
                 </div>
+                {% endif %}
             </div>
 
-            <!-- Respuestas (árbol) -->
-            <h5 class="fw-bold mb-3"><i class="fas fa-reply me-2"></i> Respuestas ({{ total_respuestas }})</h5>
+            <h1 class="pub-titulo">{{ tema.titulo }}</h1>
 
-            {% if respuestas %}
-                {% macro render_respuesta(r, nivel=0) %}
-                <div class="card-modern mb-3 respuesta-card {% if nivel > 0 %}hija{% endif %}" id="respuesta-{{ r.id }}" style="{% if nivel > 0 %}margin-left: {{ nivel * 1.5 }}rem;{% endif %}">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <p class="mb-1">
-                                <img src="{{ r.autor_foto or url_for('static', filename='img/default-avatar.png') }}" class="avatar-respuesta" onerror="this.style.display='none'">
-                                <strong>{{ r.autor_nombre }}</strong>
-                                <small class="text-muted ms-2">{{ r.creado_en.strftime('%d/%m/%Y %H:%M') }}</small>
-                            </p>
-                            <div class="contenido-markdown">{{ r.contenido|safe }}</div>
-                            <div class="d-flex align-items-center gap-2 mt-2">
-                                <span class="votar-btn {% if voto_usuario and voto_usuario.respuestas.get(r.id) == 'up' %}votado-up{% endif %}" onclick="votar('respuesta', {{ r.id }}, 'up')"><i class="fas fa-arrow-up"></i></span>
-                                <span id="votos-resp-{{ r.id }}" class="fw-bold">{{ r.votos or 0 }}</span>
-                                <span class="votar-btn {% if voto_usuario and voto_usuario.respuestas.get(r.id) == 'down' %}votado-down{% endif %}" onclick="votar('respuesta', {{ r.id }}, 'down')"><i class="fas fa-arrow-down"></i></span>
-                                {% if current_user.is_authenticated %}
-                                <button class="btn btn-sm btn-outline-primary btn-responder-hijo" onclick="mostrarFormularioRespuesta({{ r.id }})"><i class="fas fa-reply"></i> Responder</button>
-                                {% endif %}
-                                {% if current_user.is_admin %}
-                                <form method="POST" action="{{ url_for('admin_foro_eliminar_respuesta', respuesta_id=r.id) }}" onsubmit="return confirm('¿Eliminar esta respuesta?')" style="display:inline;">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
-                                </form>
-                                {% endif %}
-                            </div>
-                            <!-- Formulario para responder a esta respuesta (oculto) -->
-                            <div id="form-responder-{{ r.id }}" style="display:none; margin-top: 10px;">
-                                <form method="POST" action="{{ url_for('foro_responder', tema_id=tema.id) }}">
-                                    <input type="hidden" name="respuesta_padre_id" value="{{ r.id }}">
-                                    <textarea class="form-control" name="contenido" rows="2" required placeholder="Escribe tu respuesta..."></textarea>
-                                    <button type="submit" class="btn btn-primary btn-sm mt-1"><i class="fas fa-paper-plane me-1"></i> Responder</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="ocultarFormularioRespuesta({{ r.id }})">Cancelar</button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Renderizar respuestas hijas recursivamente -->
-                    {% if r.respuestas_hijas %}
-                        {% for hija in r.respuestas_hijas %}
-                            {{ render_respuesta(hija, nivel + 1) }}
-                        {% endfor %}
+            <div class="pub-meta">
+                {% if tema.autor_foto %}
+                <img src="{{ url_for('static', filename=tema.autor_foto) }}" class="avatar-com" alt="">
+                {% else %}
+                <span class="avatar-com">{{ (tema.autor_nombre or '?')[0]|upper }}</span>
+                {% endif %}
+                <strong style="color:#334155;">{{ tema.autor_nombre }}</strong>
+                <span>·</span>
+                <span>{{ tema.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                <span>·</span>
+                <span><i class="fas fa-eye"></i> {{ tema.vistas }} vistas</span>
+            </div>
+
+            <div class="contenido-md mt-3">{{ sanitizar_markdown(tema.contenido) }}</div>
+
+            <div class="acciones-linea">
+                <span class="voto-btn voto-up {% if voto_usuario.tema == 'up' %}votado{% endif %}"
+                    onclick="votar('tema', {{ tema.id }}, 'up')"><i class="fas fa-arrow-up"></i></span>
+                <strong id="votos-tema-{{ tema.id }}">{{ votos_tema }}</strong>
+                <span class="voto-btn voto-down {% if voto_usuario.tema == 'down' %}votado{% endif %}"
+                    onclick="votar('tema', {{ tema.id }}, 'down')"><i class="fas fa-arrow-down"></i></span>
+
+                {% if current_user.is_authenticated and tema.estado == 'activo' %}
+                <button type="button" class="btn btn-link p-0 text-decoration-none"
+                    style="color:#64748B; font-size:.85rem;" onclick="scrollAlFormulario()">
+                    <i class="fas fa-reply"></i> Responder
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- ========================================= -->
+        <!-- RESPUESTAS                                -->
+        <!-- ========================================= -->
+        <h5 class="fw-bold mb-2 mt-3">
+            <i class="fas fa-comments text-primary me-2"></i>Respuestas ({{ total_respuestas }})
+        </h5>
+
+        {% if respuestas %}
+        {% macro render_respuesta(r, nivel=0) %}
+        <div class="comentario nivel-{{ nivel }}" id="respuesta-{{ r.id }}">
+            <div class="com-header">
+                <div class="d-flex align-items-center gap-2">
+                    {% if r.autor_foto %}
+                    <img src="{{ url_for('static', filename=r.autor_foto) }}" class="avatar-com" alt="">
+                    {% else %}
+                    <span class="avatar-com">{{ (r.autor_nombre or '?')[0]|upper }}</span>
                     {% endif %}
+                    <div>
+                        <div class="com-autor">{{ r.autor_nombre }}</div>
+                        <div class="com-fecha">{{ r.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
+                    </div>
                 </div>
-                {% endmacro %}
+                {% if current_user.is_authenticated %}
+                <div class="dropdown com-dropdown">
+                    <button class="btn" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-v"></i></button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        {% if current_user.id == r.usuario_id or current_user.is_admin_or_super %}
+                        <li><a class="dropdown-item" href="{{ url_for('foro_editar_respuesta', respuesta_id=r.id) }}"><i
+                                    class="fas fa-edit me-2"></i>Editar</a></li>
+                        <li><button class="dropdown-item text-danger" onclick="eliminarRespuesta({{ r.id }})"><i
+                                    class="fas fa-trash me-2"></i>Eliminar</button></li>
+                        {% endif %}
+                        {% if current_user.id != r.usuario_id %}
+                        <li><button class="dropdown-item text-warning" onclick="reportar('respuesta', {{ r.id }})"><i
+                                    class="fas fa-flag me-2"></i>Reportar</button></li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
 
-                {% for r in respuestas %}
-                    {{ render_respuesta(r, 0) }}
-                {% endfor %}
+            <div class="contenido-md mt-2">{{ sanitizar_markdown(r.contenido) }}</div>
 
-            {% else %}
-                <div class="alert alert-info"><i class="fas fa-info-circle me-2"></i> No hay respuestas aún. ¡Sé el primero en comentar!</div>
-            {% endif %}
+            <div class="com-acciones">
+                <span class="voto-btn voto-up {% if voto_usuario.respuestas.get(r.id) == 'up' %}votado{% endif %}"
+                    onclick="votar('respuesta', {{ r.id }}, 'up')"><i class="fas fa-arrow-up"></i></span>
+                <strong id="votos-resp-{{ r.id }}">{{ r.votos }}</strong>
+                <span class="voto-btn voto-down {% if voto_usuario.respuestas.get(r.id) == 'down' %}votado{% endif %}"
+                    onclick="votar('respuesta', {{ r.id }}, 'down')"><i class="fas fa-arrow-down"></i></span>
 
-            <!-- Formulario para responder al tema (raíz) -->
-            {% if current_user.is_authenticated %}
-            <div class="card-modern mt-4">
-                <h6 class="fw-bold"><i class="fas fa-edit me-2"></i> Agregar respuesta</h6>
+                {% if current_user.is_authenticated and tema.estado == 'activo' %}
+                <button type="button" class="btn btn-link p-0 text-decoration-none"
+                    style="color:#64748B; font-size:.82rem;" onclick="toggleFormRespuesta({{ r.id }})">
+                    <i class="fas fa-reply"></i> Responder
+                </button>
+                {% endif %}
+            </div>
+
+            <div id="form-resp-{{ r.id }}" class="form-inline-respuesta d-none">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted">Respondiendo a <strong>{{ r.autor_nombre }}</strong></small>
+                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0"
+                        onclick="cerrarFormRespuesta({{ r.id }})">Cancelar</button>
+                </div>
                 <form method="POST" action="{{ url_for('foro_responder', tema_id=tema.id) }}">
-                    <textarea class="form-control" name="contenido" rows="4" required placeholder="Escribe tu respuesta... (puedes usar **negrita**, *cursiva*, [enlace](url))"></textarea>
-                    <button type="submit" class="btn btn-primary mt-2"><i class="fas fa-paper-plane me-2"></i> Responder</button>
+                    <input type="hidden" name="respuesta_padre_id" value="{{ r.id }}">
+                    <textarea class="form-control form-control-sm" name="contenido" rows="2" required
+                        placeholder="Escribe tu respuesta..."></textarea>
+                    <button type="submit" class="btn btn-primary btn-sm mt-2"
+                        style="background:#14B8A6;border-color:#14B8A6;">
+                        <i class="fas fa-paper-plane me-1"></i> Responder
+                    </button>
                 </form>
             </div>
-            {% else %}
-            <div class="alert alert-warning mt-4"><i class="fas fa-lock me-2"></i> Debes <a href="{{ url_for('login') }}">iniciar sesión</a> para participar.</div>
+
+            {% if r.respuestas_hijas %}
+            {% for h in r.respuestas_hijas %}
+            {{ render_respuesta(h, nivel + 1) }}
+            {% endfor %}
             {% endif %}
         </div>
+        {% endmacro %}
+
+        {% for r in respuestas %}
+        {{ render_respuesta(r, 0) }}
+        {% endfor %}
+
+        {% if total_paginas > 1 %}
+        <nav class="mt-3">
+            <ul class="pagination justify-content-center">
+                {% for p in range(1, total_paginas + 1) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('foro_ver_tema', tema_id=tema.id, page=p) }}">{{ p }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% else %}
+        <div class="sin-respuestas">
+            <i class="fas fa-comment-dots" style="font-size:2rem; color:#94A3B8;"></i>
+            <p class="mb-0 mt-2">Todavía no hay respuestas. Sé la primera persona en participar en esta conversación.
+            </p>
+        </div>
+        {% endif %}
+
+        <!-- ========================================= -->
+        <!-- FORM PRINCIPAL                            -->
+        <!-- ========================================= -->
+        {% if current_user.is_authenticated %}
+        {% if tema.estado == 'activo' %}
+        <div class="form-principal" id="formPrincipal">
+            <h6 class="fw-bold mb-2"><i class="fas fa-edit me-2"></i>Participa en la conversación</h6>
+            <div class="alert alert-warning small py-2 mb-2"
+                style="background:#FFFBEB; border-color:#FDE68A; color:#92400E;">
+                <i class="fas fa-lightbulb me-1"></i>
+                Recuerda argumentar tus ideas y respetar a quienes piensan diferente.
+            </div>
+            <form method="POST" action="{{ url_for('foro_responder', tema_id=tema.id) }}">
+                <textarea class="form-control" name="contenido" rows="3" required
+                    placeholder="Escribe tu respuesta..."></textarea>
+                <button type="submit" class="btn btn-primary mt-2" style="background:#14B8A6;border-color:#14B8A6;">
+                    <i class="fas fa-paper-plane me-1"></i> Responder
+                </button>
+            </form>
+        </div>
+        {% else %}
+        <div class="alert alert-warning mt-3">
+            <i class="fas fa-lock me-1"></i>Este tema está cerrado. Solo lectura.
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="alert alert-warning mt-3">
+            <i class="fas fa-lock me-1"></i>
+            <a href="{{ url_for('login') }}">Inicia sesión</a> para participar.
+        </div>
+        {% endif %}
     </div>
 </div>
 
 <script>
-    var isAuthenticated = {{ current_user.is_authenticated|tojson }};
+    const isAuth = {{ current_user.is_authenticated| tojson }};
 
+    /* ---------- VOTAR ---------- */
     function votar(tipo, id, voto) {
-        if (!isAuthenticated) { alert('Debes iniciar sesión para votar'); return; }
+        if (!isAuth) { alert('Debes iniciar sesión'); return; }
         fetch('{{ url_for("foro_votar") }}', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tipo: tipo, id: id, voto: voto })
+            body: JSON.stringify({ tipo, id, voto })
         })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                if (tipo === 'tema') {
-                    document.getElementById('votos-tema-' + id).textContent = data.total;
-                } else {
-                    document.getElementById('votos-resp-' + id).textContent = data.total;
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) { alert(d.error || 'Error'); return; }
+                const span = tipo === 'tema'
+                    ? document.getElementById('votos-tema-' + id)
+                    : document.getElementById('votos-resp-' + id);
+                if (span) span.textContent = d.total;
+
+                document.querySelectorAll(`[onclick*="votar('${tipo}', ${id},"]`)
+                    .forEach(el => el.classList.remove('votado'));
+                if (d.accion !== 'eliminado') {
+                    const act = document.querySelector(`[onclick*="votar('${tipo}', ${id}, '${voto}')"]`);
+                    if (act) act.classList.add('votado');
                 }
-                const btns = document.querySelectorAll(`[onclick*="votar('${tipo}', ${id}, '${voto}')"]`);
-                btns.forEach(btn => {
-                    if (data.accion === 'eliminado') {
-                        btn.classList.remove(`votado-${voto}`);
-                    } else if (data.accion === 'agregado' || data.accion === 'cambiado') {
-                        btn.classList.add(`votado-${voto}`);
-                        const opuesto = voto === 'up' ? 'down' : 'up';
-                        document.querySelectorAll(`[onclick*="votar('${tipo}', ${id}, '${opuesto}')"]`).forEach(el => {
-                            el.classList.remove(`votado-${opuesto}`);
-                        });
-                    }
-                });
-            } else {
-                alert('Error al votar: ' + data.error);
-            }
-        })
-        .catch(err => { alert('Error de conexión'); });
+            })
+            .catch(() => alert('Error de conexión'));
     }
 
-    function mostrarFormularioRespuesta(respuestaId) {
-        document.getElementById('form-responder-' + respuestaId).style.display = 'block';
+    /* ---------- FORM INLINE POR COMENTARIO ---------- */
+    function toggleFormRespuesta(id) {
+        document.querySelectorAll('.form-inline-respuesta').forEach(f => f.classList.add('d-none'));
+        const f = document.getElementById('form-resp-' + id);
+        if (f) {
+            f.classList.remove('d-none');
+            const ta = f.querySelector('textarea');
+            if (ta) ta.focus();
+        }
     }
-    function ocultarFormularioRespuesta(respuestaId) {
-        document.getElementById('form-responder-' + respuestaId).style.display = 'none';
+    function cerrarFormRespuesta(id) {
+        const f = document.getElementById('form-resp-' + id);
+        if (f) f.classList.add('d-none');
+    }
+    function scrollAlFormulario() {
+        const fp = document.getElementById('formPrincipal');
+        if (fp) {
+            fp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const ta = fp.querySelector('textarea');
+            if (ta) ta.focus();
+        }
+    }
+
+    /* ---------- ACCIONES DE TEMA ---------- */
+    function eliminarTema() {
+        if (!confirm('¿Eliminar este tema? Esta acción no se puede deshacer.')) return;
+        fetch('{{ url_for("foro_eliminar_tema", tema_id=tema.id) }}', { method: 'POST' })
+            .then(r => r.json())
+            .then(d => { if (d.success) location.href = '{{ url_for("foro_index") }}'; else alert(d.error || 'Error'); });
+    }
+    function eliminarRespuesta(id) {
+        if (!confirm('¿Eliminar esta respuesta?')) return;
+        fetch('/foro/respuesta/' + id + '/eliminar', { method: 'POST' })
+            .then(r => r.json())
+            .then(d => { if (d.success) location.reload(); else alert(d.error || 'Error'); });
+    }
+    function toggleCerrar() {
+        fetch('/admin/foro/tema/{{ tema.id }}/cerrar', { method: 'POST' })
+            .then(r => r.json())
+            .then(d => { if (d.success) location.reload(); else alert(d.error); });
+    }
+    function toggleOcultar() {
+        fetch('/admin/foro/tema/{{ tema.id }}/ocultar', { method: 'POST' })
+            .then(r => r.json())
+            .then(d => { if (d.success) location.reload(); else alert(d.error); });
+    }
+
+    /* ---------- REPORTAR ---------- */
+    function reportar(tipo, id) {
+        const motivo = prompt(
+            'Motivo del reporte:\n1 = Spam\n2 = Insultos\n3 = Información falsa\n' +
+            '4 = Acoso\n5 = Contenido inapropiado\n6 = Otro'
+        );
+        const map = { '1': 'spam', '2': 'insultos', '3': 'falso', '4': 'acoso', '5': 'inapropiado', '6': 'otro' };
+        const m = map[motivo];
+        if (!m) return;
+        const body = { motivo: m };
+        if (m === 'otro') body.detalle = prompt('Detalle adicional (opcional):') || '';
+        if (tipo === 'tema') body.tema_id = id; else body.respuesta_id = id;
+        fetch('{{ url_for("foro_reportar") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        })
+            .then(r => r.json())
+            .then(d => alert(d.success ? '✅ Reporte enviado. Gracias.' : (d.error || 'Error')));
     }
 </script>
 {% endblock %}

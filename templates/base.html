@@ -59,8 +59,10 @@
                             href="{{ url_for('foro_index') }}">
                             <i class="fas fa-comments me-1"></i> Foro
                             {% if current_user.is_authenticated %}
-                            <span id="notificacion-badge" class="badge bg-danger rounded-pill"
-                                style="display:none; font-size:0.6rem;"></span>
+                            <span id="notificacion-badge"
+                                  class="badge bg-danger rounded-pill"
+                                  aria-label="Notificaciones sin leer"
+                                  style="display:none; font-size:0.6rem; vertical-align:top;"></span>
                             {% endif %}
                         </a>
                     </li>
@@ -75,8 +77,7 @@
                     </li>
 
                     <!-- Estudiante -->
-                    {% if current_user.is_authenticated and not current_user.is_docente and not current_user.is_admin
-                    and not current_user.is_super_admin %}
+                    {% if not current_user.is_docente and not current_user.is_admin and not current_user.is_super_admin %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'estudiante_mis_clases' %}active{% endif %}"
                             href="{{ url_for('estudiante_mis_clases') }}">
@@ -116,7 +117,7 @@
                     {% endif %}
 
                     <!-- Admin -->
-                    {% if current_user.is_admin or current_user.is_super_admin %}
+                    {% if current_user.is_admin %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button"
                             data-bs-toggle="dropdown">
@@ -141,6 +142,14 @@
                             <li><a class="dropdown-item" href="{{ url_for('admin_propuestas') }}">
                                     <i class="fas fa-file-signature me-2"></i> Propuestas
                                 </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_foro_reportes') }}">
+                                    <i class="fas fa-flag me-2"></i> Reportes del Foro
+                                </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_foro_categorias') }}">
+                                    <i class="fas fa-tags me-2"></i> Categorías del Foro
+                                </a></li>
+                            <li><hr class="dropdown-divider"></li>
                             {% if current_user.is_super_admin %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_usuarios') }}">
                                     <i class="fas fa-users me-2"></i> Usuarios
@@ -154,6 +163,9 @@
                                 </a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_tareas') }}">
                                     <i class="fas fa-tasks me-2"></i> Tareas
+                                </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_descargas') }}">
+                                    <i class="fas fa-download me-2"></i> Descargas
                                 </a></li>
                         </ul>
                     </li>
@@ -226,26 +238,54 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
     {% if current_user.is_authenticated %}
     <script>
-        // Verificar notificaciones cada 30 segundos
-        function checkNotifications() {
-            fetch('{{ url_for("foro_notificaciones") }}')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.notificaciones && data.notificaciones.length > 0) {
-                        const badge = document.getElementById('notificacion-badge');
-                        badge.textContent = data.notificaciones.length;
-                        badge.style.display = 'inline-block';
-                    }
-                })
-                .catch(err => console.log('Error al obtener notificaciones'));
+    (function () {
+        const badge = document.getElementById('notificacion-badge');
+        if (!badge) return;   // sin sesión → sin badge
+
+        let fetchEnCurso = false;
+
+        function cargarContador() {
+            if (fetchEnCurso) return;
+            fetchEnCurso = true;
+
+            fetch('{{ url_for("foro_notificaciones_count") }}', {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            })
+            .then(r => r.ok ? r.json() : { count: 0 })
+            .then(data => {
+                const n = parseInt(data.count, 10) || 0;
+                if (n > 0) {
+                    badge.textContent = n > 99 ? '99+' : n;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                    badge.textContent = '';
+                }
+            })
+            .catch(() => { /* silencioso */ })
+            .finally(() => { fetchEnCurso = false; });
         }
 
-        document.addEventListener('DOMContentLoaded', function () {
-            checkNotifications();
-            setInterval(checkNotifications, 30000);
+        // Primera carga
+        cargarContador();
+
+        // Refresco cada 60 s, solo si la pestaña está visible
+        setInterval(() => {
+            if (!document.hidden) cargarContador();
+        }, 60000);
+
+        // Refresco al volver a la pestaña
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) cargarContador();
         });
+
+        // Disponible para otras vistas (por ejemplo, al marcar como leídas)
+        window.actualizarBadgeForo = cargarContador;
+    })();
     </script>
     {% endif %}
 </body>

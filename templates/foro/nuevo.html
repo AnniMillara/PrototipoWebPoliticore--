@@ -1,153 +1,118 @@
 {% extends "base.html" %}
-
-{% block title %}Nuevo tema - PolitiCore{% endblock %}
-
-{% block extra_css %}
-<style>
-    .editor-toolbar {
-        background: #F8FAFC;
-        border-radius: 8px 8px 0 0;
-        padding: 8px;
-        border: 1px solid #E5E7EB;
-        border-bottom: none;
-    }
-    .editor-toolbar .btn { font-size: 0.8rem; padding: 4px 8px; }
-    .drop-zone {
-        border: 2px dashed #ccc;
-        border-radius: 8px;
-        padding: 20px;
-        text-align: center;
-        cursor: pointer;
-        transition: background 0.3s;
-    }
-    .drop-zone:hover { background: #f8f9fa; }
-</style>
-{% endblock %}
+{% block title %}Nueva discusión - PolitiCore{% endblock %}
 
 {% block content %}
 <div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card-modern">
-                <h4 class="fw-bold mb-4"><i class="fas fa-plus-circle text-primary me-2"></i> Crear nuevo tema</h4>
-                <form method="POST">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Título <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="titulo" required placeholder="Escribe un título descriptivo">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Categoría</label>
-                        <select class="form-select" name="categoria">
-                            <option value="general">📌 General</option>
-                            <option value="pregunta">❓ Pregunta</option>
-                            <option value="debate">🗣️ Debate</option>
-                            <option value="noticia">📰 Noticia</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Contenido <span class="text-danger">*</span></label>
-                        <div class="editor-toolbar">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertarTexto('**', '**')"><b>B</b></button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertarTexto('*', '*')"><i>I</i></button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertarTexto('[', '](url)')">🔗</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertarTexto('- ', '')">•</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertarImagen()">🖼️ Imagen</button>
-                        </div>
-                        <textarea class="form-control" name="contenido" id="contenido" rows="10" required placeholder="Escribe tu mensaje aquí... (puedes usar **negrita**, *cursiva*, [enlace](url), - listas, y subir imágenes)"></textarea>
-                        <small class="text-muted">Puedes usar formato Markdown básico y subir imágenes (PNG, JPG, GIF).</small>
-                        <div class="drop-zone mt-2" id="dropZone">
-                            <i class="fas fa-cloud-upload-alt fa-2x"></i>
-                            <p>Arrastra y suelta imágenes aquí o haz clic para subir</p>
-                            <input type="file" id="fileInput" accept="image/*" style="display:none;" multiple>
-                        </div>
-                    </div>
-                    {% if noticias %}
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Vincular a noticia (opcional)</label>
-                        <select class="form-select" name="noticia_id">
-                            <option value="">Sin vincular</option>
-                            {% for n in noticias %}
-                            <option value="{{ n.id }}">{{ n.titulo }}</option>
-                            {% endfor %}
-                        </select>
-                        <small class="text-muted">El tema aparecerá en la sección de comentarios de esa noticia.</small>
-                    </div>
-                    {% endif %}
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i> Publicar</button>
-                    <a href="{{ url_for('foro_index') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-2"></i> Volver</a>
-                </form>
-            </div>
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <a href="{{ url_for('foro_index') }}" class="btn btn-outline-secondary btn-sm mb-3">
+        <i class="fas fa-arrow-left me-1"></i> Volver al foro
+      </a>
+
+      <div class="card-modern">
+        <h4 class="fw-bold mb-3"><i class="fas fa-plus-circle text-primary me-2"></i>Crear nueva discusión</h4>
+
+        <div class="alert alert-info small">
+          <i class="fas fa-info-circle me-1"></i>
+          <strong>Antes de publicar:</strong> argumenta tus ideas, respeta a quienes piensan diferente y evita compartir información sin verificar.
         </div>
+
+        <form method="POST" id="formTema">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Título <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="titulo" id="titulo"
+                   maxlength="150" minlength="5" required
+                   placeholder="Ej: ¿Cómo podemos mejorar la participación en mi colegio?">
+            <div class="d-flex justify-content-between small text-muted">
+              <span>Mínimo 5 caracteres</span>
+              <span><span id="cTitulo">0</span>/150</span>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Categoría <span class="text-danger">*</span></label>
+            <select class="form-select" name="categoria_id" required>
+              <option value="">Selecciona una categoría...</option>
+              {% for c in categorias %}
+                <option value="{{ c.id }}">
+                  {{ c.nombre }} — {{ c.descripcion }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Contenido <span class="text-danger">*</span></label>
+            <div class="editor-toolbar bg-light p-2 border rounded-top">
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="wrap('**')"><b>B</b></button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="wrap('*')"><i>I</i></button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertLink()">🔗</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertImg()">🖼️</button>
+            </div>
+            <textarea class="form-control border-top-0" name="contenido" id="contenido"
+                      rows="8" minlength="15" maxlength="8000" required
+                      placeholder="Comparte tu opinión, pregunta o debate..."></textarea>
+            <div class="d-flex justify-content-between small text-muted">
+              <span>Mínimo 15 caracteres. Puedes usar **negrita**, *cursiva* y [enlaces](url).</span>
+              <span><span id="cCont">0</span>/8000</span>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" hidden>
+          </div>
+
+          {% if noticias %}
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Vincular a una noticia (opcional)</label>
+              <select class="form-select" name="noticia_id">
+                <option value="">Sin vincular</option>
+                {% for n in noticias %}
+                  <option value="{{ n.id }}">{{ n.titulo }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          {% endif %}
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary" style="background:#14B8A6;border-color:#14B8A6;">
+              <i class="fas fa-paper-plane me-1"></i> Publicar
+            </button>
+            <a href="{{ url_for('foro_index') }}" class="btn btn-outline-secondary">Cancelar</a>
+          </div>
+        </form>
+      </div>
     </div>
+  </div>
 </div>
 
 <script>
-    function insertarTexto(open, close) {
-        const textarea = document.getElementById('contenido');
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const text = textarea.value;
-        const selected = text.substring(start, end);
-        const replacement = open + selected + close;
-        textarea.value = text.substring(0, start) + replacement + text.substring(end);
-        textarea.focus();
-        textarea.selectionStart = start + open.length;
-        textarea.selectionEnd = start + open.length + selected.length;
-    }
+const titulo = document.getElementById('titulo');
+const cont = document.getElementById('contenido');
+titulo.addEventListener('input', () => document.getElementById('cTitulo').textContent = titulo.value.length);
+cont.addEventListener('input', () => document.getElementById('cCont').textContent = cont.value.length);
 
-    function insertarImagen() {
-        document.getElementById('fileInput').click();
-    }
-
-    document.getElementById('fileInput').addEventListener('change', function(e) {
-        const files = e.target.files;
-        for (let i = 0; i < files.length; i++) {
-            subirImagen(files[i]);
-        }
+function wrap(token) {
+  const s = cont.selectionStart, e = cont.selectionEnd;
+  const sel = cont.value.substring(s, e) || 'texto';
+  cont.value = cont.value.substring(0, s) + token + sel + token + cont.value.substring(e);
+  cont.focus();
+  cont.selectionStart = s + token.length;
+  cont.selectionEnd = s + token.length + sel.length;
+}
+function insertLink() {
+  const url = prompt('URL del enlace:'); if (!url) return;
+  const txt = prompt('Texto a mostrar:') || url;
+  const s = cont.selectionStart;
+  cont.value = cont.value.substring(0, s) + `[${txt}](${url})` + cont.value.substring(s);
+}
+function insertImg() { document.getElementById('fileInput').click(); }
+document.getElementById('fileInput').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const fd = new FormData(); fd.append('imagen', f);
+  fetch('{{ url_for("foro_subir_imagen") }}', {method:'POST', body:fd})
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) cont.value += `\n![imagen](${d.url})\n`;
+      else alert(d.error || 'Error');
     });
-
-    document.getElementById('dropZone').addEventListener('dragover', function(e) {
-        e.preventDefault();
-        this.style.background = '#e9ecef';
-    });
-    document.getElementById('dropZone').addEventListener('dragleave', function(e) {
-        e.preventDefault();
-        this.style.background = '';
-    });
-    document.getElementById('dropZone').addEventListener('drop', function(e) {
-        e.preventDefault();
-        this.style.background = '';
-        const files = e.dataTransfer.files;
-        for (let i = 0; i < files.length; i++) {
-            if (files[i].type.startsWith('image/')) {
-                subirImagen(files[i]);
-            }
-        }
-    });
-    document.getElementById('dropZone').addEventListener('click', function() {
-        document.getElementById('fileInput').click();
-    });
-
-    function subirImagen(file) {
-        const formData = new FormData();
-        formData.append('imagen', file);
-        fetch('{{ url_for("foro_subir_imagen") }}', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const textarea = document.getElementById('contenido');
-                const markdown = `![imagen](${data.url})`;
-                textarea.value += '\n' + markdown + '\n';
-            } else {
-                alert('Error al subir imagen: ' + data.error);
-            }
-        })
-        .catch(err => {
-            alert('Error de conexión');
-        });
-    }
+});
 </script>
 {% endblock %}

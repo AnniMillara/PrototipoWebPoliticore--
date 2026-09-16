@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Editar - PolitiCore{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card-modern">
+        <h4 class="fw-bold mb-3">
+          <i class="fas fa-edit text-primary me-2"></i>
+          Editar {% if tipo == 'tema' %}discusión{% else %}respuesta{% endif %}
+        </h4>
+
+        {% if tipo == 'tema' %}
+          <form method="POST">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Título</label>
+              <input type="text" class="form-control" name="titulo"
+                     value="{{ tema.titulo }}" maxlength="150" minlength="5" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Categoría</label>
+              <select class="form-select" name="categoria_id">
+                {% for c in categorias %}
+                  <option value="{{ c.id }}" {% if c.id == tema.categoria_id %}selected{% endif %}>
+                    {{ c.nombre }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Contenido</label>
+              <textarea class="form-control" name="contenido" rows="8"
+                        minlength="15" maxlength="8000" required>{{ tema.contenido }}</textarea>
+            </div>
+            <button class="btn btn-primary" style="background:#14B8A6;border-color:#14B8A6;">Guardar cambios</button>
+            <a href="{{ url_for('foro_ver_tema', tema_id=tema.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+          </form>
+        {% else %}
+          <form method="POST">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Contenido</label>
+              <textarea class="form-control" name="contenido" rows="6"
+                        minlength="2" maxlength="5000" required>{{ respuesta.contenido }}</textarea>
+            </div>
+            <button class="btn btn-primary" style="background:#14B8A6;border-color:#14B8A6;">Guardar cambios</button>
+            <a href="{{ url_for('foro_ver_tema', tema_id=respuesta.tema_id) }}" class="btn btn-outline-secondary">Cancelar</a>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
