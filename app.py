@@ -225,7 +225,6 @@ def index():
         {'nombre': 'Elecciones en vivo', 'icono': 'vote-yea'},
         {'nombre': 'Comparador de candidatos', 'icono': 'balance-scale'},
         {'nombre': 'Seguimiento de promesas', 'icono': 'clipboard-check'},
-        {'nombre': 'Panel de noticias', 'icono': 'shield-alt'},
         {'nombre': 'Panel para colegios', 'icono': 'school'}
     ]
     return render_template('index.html', noticias_destacadas=noticias[:3], proximas_funciones=proximas_funciones)
