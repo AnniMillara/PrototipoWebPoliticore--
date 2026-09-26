@@ -526,16 +526,25 @@ def get_autoridades_from_json():
         return []
 
 def sync_autoridades_to_db(autoridades):
+    """Sincroniza las autoridades del JSON a la BD sin TRUNCATE (compatible con TiDB FK)."""
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("TRUNCATE autoridades")
         for auth in autoridades:
             cur.execute("""
                 INSERT INTO autoridades (
                     id, nombre, apellido_paterno, cargo, descripcion_cargo, 
                     partido, activo, prioridad, biografia
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    nombre = VALUES(nombre),
+                    apellido_paterno = VALUES(apellido_paterno),
+                    cargo = VALUES(cargo),
+                    descripcion_cargo = VALUES(descripcion_cargo),
+                    partido = VALUES(partido),
+                    activo = VALUES(activo),
+                    prioridad = VALUES(prioridad),
+                    biografia = VALUES(biografia)
             """, (
                 auth.get('id', 0),
                 auth.get('nombre', ''),
@@ -1706,10 +1715,22 @@ def admin_leccion_editar(id):
         cur.execute("SELECT * FROM actividades_leccion WHERE leccion_id = %s ORDER BY orden", (id,))
         actividades = cur.fetchall()
         for act in actividades:
+            # Normalizar 'opciones' → siempre lista
             if act.get('opciones'):
-                act['opciones'] = json.loads(act['opciones']) if isinstance(act['opciones'], str) else act['opciones']
-            if act.get('respuesta_correcta'):
-                act['respuesta_correcta'] = json.loads(act['respuesta_correcta']) if isinstance(act['respuesta_correcta'], str) else act['respuesta_correcta']
+                try:
+                    act['opciones'] = json.loads(act['opciones']) if isinstance(act['opciones'], str) else act['opciones']
+                except (ValueError, TypeError):
+                    act['opciones'] = []
+            else:
+                act['opciones'] = []
+            # Normalizar 'respuesta_correcta' → siempre int
+            if act.get('respuesta_correcta') is not None:
+                try:
+                    act['respuesta_correcta'] = json.loads(act['respuesta_correcta']) if isinstance(act['respuesta_correcta'], str) else act['respuesta_correcta']
+                except (ValueError, TypeError):
+                    act['respuesta_correcta'] = 0
+            else:
+                act['respuesta_correcta'] = 0
         leccion['actividades'] = actividades
         cur.execute("SELECT * FROM mundos_aprendizaje ORDER BY nombre")
         mundos = cur.fetchall()
@@ -1859,6 +1880,7 @@ def admin_simulacion_editar_escenas(id):
             cons_educacion = request.form.getlist('cons_educacion[]')
             cons_seguridad = request.form.getlist('cons_seguridad[]')
             cons_economia = request.form.getlist('cons_economia[]')
+
             nuevas_escenas = []
             for i in range(len(escena_ids)):
                 if i < len(escena_original_ids) and escena_original_ids[i] != 'new':
@@ -1870,34 +1892,30 @@ def admin_simulacion_editar_escenas(id):
                     'tipo': escena_tipos[i] if i < len(escena_tipos) else 'decision',
                     'contexto': escena_contextos[i] if i < len(escena_contextos) else ''
                 }
+
+                # 👇 SIEMPRE incluir 'opciones', incluso para eventos
                 if escena['tipo'] == 'decision':
                     opciones = []
-                    textos = []
-                    if i < len(opcion1s):
-                        textos.append(opcion1s[i].strip())
-                    else:
-                        textos.append('')
-                    if i < len(opcion2s):
-                        textos.append(opcion2s[i].strip())
-                    else:
-                        textos.append('')
-                    if i < len(opcion3s):
-                        textos.append(opcion3s[i].strip())
-                    else:
-                        textos.append('')
+                    textos = [
+                        opcion1s[i].strip() if i < len(opcion1s) else '',
+                        opcion2s[i].strip() if i < len(opcion2s) else '',
+                        opcion3s[i].strip() if i < len(opcion3s) else '',
+                    ]
                     base_idx = i * 3
+
+                    def get_val(lista, idx):
+                        if idx < len(lista) and lista[idx] != '':
+                            try:
+                                return int(lista[idx])
+                            except ValueError:
+                                return None
+                        return None
+
                     for j in range(3):
                         texto = textos[j]
                         if texto == '':
                             continue
                         idx = base_idx + j
-                        def get_val(lista, idx):
-                            if idx < len(lista) and lista[idx] != '':
-                                try:
-                                    return int(lista[idx])
-                                except ValueError:
-                                    return None
-                            return None
                         consecuencias = {}
                         val = get_val(cons_participacion, idx)
                         if val is not None:
@@ -1914,17 +1932,27 @@ def admin_simulacion_editar_escenas(id):
                         val = get_val(cons_economia, idx)
                         if val is not None:
                             consecuencias['Economia'] = val
+
                         opcion = {'texto': texto}
                         if consecuencias:
                             opcion['consecuencias'] = consecuencias
                         opciones.append(opcion)
+
                     if not opciones:
                         opciones = [{'texto': 'Opción por defecto'}]
                     escena['opciones'] = opciones
+                else:
+                    # 👈 FIX: eventos también llevan 'opciones' (lista vacía)
+                    escena['opciones'] = []
+
                 nuevas_escenas.append(escena)
+
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("UPDATE campanas_simulacion SET escenas = %s WHERE id = %s", (json.dumps(nuevas_escenas, ensure_ascii=False), id))
+            cur.execute(
+                "UPDATE campanas_simulacion SET escenas = %s WHERE id = %s",
+                (json.dumps(nuevas_escenas, ensure_ascii=False), id)
+            )
             conn.commit()
             cur.close()
             conn.close()
@@ -1932,6 +1960,7 @@ def admin_simulacion_editar_escenas(id):
             return redirect(url_for('admin_simulaciones'))
         return render_template('admin/simulacion_escenas.html', simulacion=simulacion, escenas=escenas)
     except Exception as e:
+        print(f"admin_simulacion_editar_escenas ERROR: {e}")
         flash('Error al editar las situaciones', 'danger')
         return redirect(url_for('admin_simulaciones'))
 
