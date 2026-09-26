@@ -3,6 +3,7 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 import os
+import ssl
 import json
 from datetime import datetime, date, timedelta
 import pymysql
@@ -49,13 +50,19 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB
 
 def get_db_connection():
+    # SSL obligatorio para TiDB Cloud (y opcional para local)
+    ssl_config = None
+    if os.getenv('DB_SSL', 'false').lower() == 'true':
+        ssl_config = ssl.create_default_context()
+
     return pymysql.connect(
         host=app.config['MYSQL_HOST'],
         user=app.config['MYSQL_USER'],
         password=app.config['MYSQL_PASSWORD'],
         database=app.config['MYSQL_DB'],
         cursorclass=pymysql.cursors.DictCursor,
-        autocommit=True
+        autocommit=True,
+        ssl=ssl_config
     )
 
 @app.route('/uploads/<path:filename>')
@@ -1052,8 +1059,6 @@ def get_indicadores_actuales(campana_id, escena_actual, campana):
         return {'Participacion': 35, 'Confianza': 35, 'Educacion': 35, 'Seguridad': 35, 'Economia': 35}
     else:
         return {'Participacion': 50, 'Confianza': 50, 'Educacion': 50, 'Seguridad': 50, 'Economia': 50}
-
-# ======================== FUNCIÓN CALCULAR FINAL MEJORADA ========================
 
 # ======================== FUNCIÓN CALCULAR FINAL MEJORADA ========================
 
